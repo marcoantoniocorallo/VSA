@@ -5,9 +5,9 @@ type ICFG =
 
     abstract EntryBlock : unit -> INode
 
-    abstract Succ: INode -> INode
+    abstract Succ: INode -> INode list
 
-    abstract Prec: INode -> INode
+    abstract Prec: INode -> INode list
 
     abstract Dep: INode -> INode list
 

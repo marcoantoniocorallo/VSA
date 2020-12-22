@@ -7,9 +7,9 @@ type INode =
     // TODO : Statement type
     abstract statm : int
 
-    abstract Succ: unit -> INode
+    abstract Succ: unit -> INode list
 
-    abstract Prec: unit -> INode
+    abstract Prec: unit -> INode list
 
     abstract Dep : unit -> INode list
 
