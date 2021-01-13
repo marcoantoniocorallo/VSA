@@ -19,16 +19,16 @@ let WorkList (L : ILattice<'T>) (T : Map<int,('T->'T)>) (cfg : ICFG)  =
     for i = 0 to n do
         x.Add(head, L.Bot)
         W <- W@[head]
-        v <- v.Tail@(cfg.Succ head)
+        v <- v.Tail@(head.Succ())
         head <- v.Head
 
     // Scans work-list and applies transfer function based on type of statement
     while W.Length <> 0 do
         let vi = W.Head
         W <- W.Tail
-        let y = x.[vi] |> T.[vi.statm]
+        let y = x.[vi] |> T.[vi.Statm().Type]
 
-        // for each vi's successor node, compute join and, if It's not alredy present, add It
+        // for each vi's successor node, compute join and, if It's not already present, add It
         for vj in vi.Dep() do
             let z = L.Join x.[vj] y
             
