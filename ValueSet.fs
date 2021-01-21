@@ -1,6 +1,6 @@
 (* r-tuple of Reduced Interval Congruence of the form (a,b,c,d) = { aZ + d | Z is an el. of [b,c] } 
  * the constructor takes a (MemoryRegion * (int*int*int*int) ) list, 
- * where the first parameter is the type of Memory Region ∈ {Heap, AR, Global}
+ * where the first parameter is the type of Memory Region
  * and the second is the tuple (a,b,c,d)
  *
  * There are two ctor for the Top and Bottom element
@@ -14,7 +14,7 @@ open FSharp.Collections
 
 type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) = 
 
-    let check = if list=[] then failwith("Wrong ctor")
+    let check = if list=[] then failwith("Wrong parameters")
 
     let mutable tuples = list
     let mutable map = new Map<MemoryRegion, Set<int>>([])
@@ -52,17 +52,17 @@ type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) =
     // Ctor for top and bottom element and methods for work with these special values
     new(s : string) = 
         match s with 
-        |"top" -> ValueSet([MemoryRegion.Top,(0,0,0,0)]) 
-        |"bot" |"bottom" -> ValueSet([MemoryRegion.Bottom,(0,0,0,0)]) 
+        |"top" -> ValueSet([new MemoryRegion(RegionType.Top, -1),(0,0,0,0)]) 
+        |"bot" |"bottom" -> ValueSet([new MemoryRegion(RegionType.Bottom, -1),(0,0,0,0)]) 
         |_ -> ValueSet([])
         
     member this.IsBot() = try 
-                            this.VS.[MemoryRegion.Bottom] |> ignore
+                            this.VS.[new MemoryRegion(RegionType.Bottom,-1)] |> ignore
                             true
                           with | :? System.Collections.Generic.KeyNotFoundException -> false
 
     member this.IsTop() = try 
-                            this.VS.[MemoryRegion.Top] |> ignore
+                            this.VS.[new MemoryRegion(RegionType.Top, -1)] |> ignore
                             true
                           with | :? System.Collections.Generic.KeyNotFoundException -> false
     
