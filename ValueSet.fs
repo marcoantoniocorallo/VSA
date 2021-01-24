@@ -14,8 +14,6 @@ open FSharp.Collections
 
 type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) = 
 
-    let check = if list=[] then failwith("Wrong parameters")
-
     let mutable tuples = list
     let mutable map = new Map<MemoryRegion, Set<int>>([])
         
@@ -31,9 +29,7 @@ type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) =
         |(memReg,(a,b,c,d))::xs -> map <- map.Add(memReg, new Set<int>(calcSet (a,b,c,d))) ; f xs
 
     // initializes hashmap 
-    do
-        check 
-        map <- f list
+    do map <- f list
 
     // HashMap <memReg, RIC>
     member this.VS = map
