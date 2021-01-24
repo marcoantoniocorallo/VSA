@@ -21,9 +21,6 @@ type MemoryRegion(regType : RegionType, id : int) =
     override this.Equals(o : obj) =
         let memReg = o:?>MemoryRegion
         if this.ID()=memReg.ID() && this.Type()=memReg.Type() then true else false
-
-    override this.GetHashCode() =
-        this.ID().GetHashCode()+this.Type().GetHashCode()
         
     // Implements IComparable in order to use MemoryRegion objs as keys in hashmap
     interface System.IComparable with
