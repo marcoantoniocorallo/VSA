@@ -13,16 +13,16 @@
  * SimpleAss : R1 = val
  *)
 
-type ide = string;;
+type aloc = string;;
 type Exp =
-    |Ass1 of ide * ide * int 
-    |Ass2 of ide * int * ide * int 
-    |Ass3 of ide * ide * int * int
-    |LeqConst of ide * int 
-    |GeqConst of ide * int 
-    |LeqVar of ide * ide
+    |Ass1 of aloc * aloc * int 
+    |Ass2 of aloc * int * aloc * int 
+    |Ass3 of aloc * aloc * int * int
+    |LeqConst of aloc * int 
+    |GeqConst of aloc * int 
+    |LeqVar of aloc * aloc
 
-    |SimpleAss of ide * int
-    |GlobalDec of ide list
-    |HeapDec of ide list
+    |SimpleAss of aloc * int
+    |GlobalDec of aloc list
+    |HeapDec of aloc list
 ;;
