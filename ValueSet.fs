@@ -4,9 +4,9 @@
  * and the second is the tuple (a,b,c,d)
  *
  * There are two ctor for the Top and Bottom element
- * Top = [ R, ..., R ] that are the sets that contains every other set 
+ * ⊤ = [ R, ..., R ] that are the sets that contains every other set 
  *     (top over everything else, in according with the sorting operator)
- * Bot = [ {}, ..., {} ] that are the empty sets, contained in every other set
+ * ⊥ = [ {}, ..., {} ] that are the empty sets, contained in every other set
  * These els are represented by special values (MemoryRegion.Top/Bottom)
  *)
 
