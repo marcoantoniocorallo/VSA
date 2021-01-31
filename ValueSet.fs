@@ -31,11 +31,18 @@ type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) =
     // initializes hashmap 
     do map <- f list
 
+    // Ctor for top and bottom element and methods for work with these special values
+    new(s : string) = 
+        match s with 
+        |"top" -> ValueSet([new MemoryRegion(RegionType.Top, -1),(0,0,0,0)]) 
+        |"bot" |"bottom" -> ValueSet([new MemoryRegion(RegionType.Bottom, -1),(0,0,0,0)]) 
+        |_ -> ValueSet([])
+
     // HashMap <memReg, RIC>
     member this.VS = map
 
     // returns the list of keys/memory regions
-    member this.MemRegs = this.VS |> Map.toList |> List.map fst
+    member this.MemRegs() = this.VS |> Map.toList |> List.map fst
 
     // Adds or modifies element with a new tuple
     member this.Add(memReg, (a,b,c,d)) = 
@@ -44,14 +51,8 @@ type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) =
 
     // returns the list of tuples 
     member this.Tuples() = tuples
-
-    // Ctor for top and bottom element and methods for work with these special values
-    new(s : string) = 
-        match s with 
-        |"top" -> ValueSet([new MemoryRegion(RegionType.Top, -1),(0,0,0,0)]) 
-        |"bot" |"bottom" -> ValueSet([new MemoryRegion(RegionType.Bottom, -1),(0,0,0,0)]) 
-        |_ -> ValueSet([])
         
+    //Top and bottom are symbolic values, you can check by these methods
     member this.IsBot() = try 
                             this.VS.[new MemoryRegion(RegionType.Bottom,-1)] |> ignore
                             true
