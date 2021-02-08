@@ -5,7 +5,7 @@ open System.Collections.Generic
            Control-Flow-Graph nodes v1,...,vn
    Output: Abstract states x1,...,xn
 *)
-let WorkList (L : ILattice<'T>) (T : Map<Exp,('T->'T)>) (cfg : ICFG)  =
+let WorkList (L : ILattice<'T>) (T : Exp -> ('T->'T)) (cfg : ICFG)  =
     
     // define: n = #{v1,...,vn}, 
     // x = (node -> (aloc -> VS) ) = (⊥,...,⊥) 
@@ -26,7 +26,7 @@ let WorkList (L : ILattice<'T>) (T : Map<Exp,('T->'T)>) (cfg : ICFG)  =
     while W.Length <> 0 do
         let vi = W.Head
         W <- W.Tail
-        let y = x.[vi] |> T.[vi.Statm()]
+        let y = x.[vi] |> T(vi.Statm())
 
         // for each vi's successor node, compute join and, if It's not already present, add It
         for vj in vi.Dep() do
