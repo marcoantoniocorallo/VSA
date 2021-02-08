@@ -34,7 +34,7 @@ type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) =
     // Ctor for top and bottom element and methods for work with these special values
     new(s : string) = 
         match s with 
-        |"top" -> ValueSet([new MemoryRegion(RegionType.Top, -1),(0,0,0,0)]) 
+        |"top" -> ValueSet([new MemoryRegion(RegionType.Top, -2),(0,0,0,0)]) 
         |"bot" |"bottom" -> ValueSet([new MemoryRegion(RegionType.Bottom, -1),(0,0,0,0)]) 
         |_ -> ValueSet([])
 
@@ -59,7 +59,7 @@ type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) =
                           with | :? System.Collections.Generic.KeyNotFoundException -> false
 
     member this.IsTop() = try 
-                            this.VS.[new MemoryRegion(RegionType.Top, -1)] |> ignore
+                            this.VS.[new MemoryRegion(RegionType.Top, -2)] |> ignore
                             true
                           with | :? System.Collections.Generic.KeyNotFoundException -> false
     

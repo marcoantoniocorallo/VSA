@@ -1,6 +1,5 @@
 (* An abstract store for VSA is a map: a-loc -> Value-set 
- * ⊥ = <aloc-i, VS.⊥> for each aloc-i
- * ⊤ = <aloc-i, VS.⊤> for each aloc-i
+ * ⊥ and ⊤ are symbolically represented by the couple <"0", VS(⊥)/VS(⊤)>, since 0 cannot be a variable name
  *)
 type AbstractState( map : Map<aloc, ValueSet>) =
 
@@ -11,12 +10,14 @@ type AbstractState( map : Map<aloc, ValueSet>) =
     member this.VS = this.Map |> Map.toList |> List.map snd
 
     member this.IsBot() = 
-        let n = (this.VS |> List.filter (fun x -> x.IsBot()) ).Length
-        if n = this.VS.Length then true else false
+        try
+            match this.Map.["0"] with |vs -> if vs.IsBot() then true else false
+        with | :? System.Collections.Generic.KeyNotFoundException -> false
 
     member this.IsTop() = 
-        let n = (this.VS |> List.filter (fun x -> x.IsTop()) ).Length
-        if n = this.VS.Length then true else false
+        try
+            match this.Map.["0"] with |vs -> if vs.IsTop() then true else false
+        with | :? System.Collections.Generic.KeyNotFoundException -> false
 
     // build the map from list
     new(l : (aloc*ValueSet) list) = AbstractState(new Map<aloc,ValueSet>(l))

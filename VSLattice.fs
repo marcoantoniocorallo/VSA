@@ -7,15 +7,15 @@
 // Nel caso in cui uno dei due oggetti non contenga un elemento (Heapi, ARi), viene considerato l'elemento Bottom
 
 open FSharp.Collections
-type Lattice( alocs : aloc list ) = 
+type Lattice() = 
 
     interface ILattice<AbstractState> with
 
         // Bottom element = (<aloc-0,⊥>;...;<aloc-n,⊥>)
-        member this.Bot() = new AbstractState(alocs |> List.map (fun x -> (x,new ValueSet("bot")) ))
+        member this.Bot() = new AbstractState([("0",new ValueSet("bot"))])
         
-        // Top element = (<aloc-0,R>;...;<aloc-n,R>)
-        member this.Top() = new AbstractState(alocs |> List.map (fun x -> (x,new ValueSet("top")) ))
+        // Top element = (<aloc-0,⊤>;...;<aloc-n,⊤>)
+        member this.Top() = new AbstractState([("0",new ValueSet("top"))])
         
         // Returns true if the value-set states1.[aloc] is a subset of states2.[aloc], for each aloc
         // false otherwise
@@ -36,13 +36,20 @@ type Lattice( alocs : aloc list ) =
                         let vs2 = states2.Map.[aloc]
 
                         // vs1's list of keys
-                        let keys1 = vs1.MemRegs
-                        let rec f keys = 
+                        let keys1 = vs1.MemRegs()
+                        let rec f (keys : MemoryRegion list) = 
                             match keys with
                             |[] -> res <- res
                             |k::ks -> try 
-                                         if not(vs1.VS.[k].IsSubsetOf(vs2.VS.[k])) then res <- false
-                                                                                   else f ks
+
+                                         // ID = -1 -> ⊥; ID = -2 -> ⊤
+                                         match k.ID() with 
+                                         | -1 -> f ks 
+                                         | -2 -> if vs2.VS.[k]=Set<int>([0]) then f ks else res <- false
+                                         | _ ->  if not(vs1.VS.[k].IsSubsetOf(vs2.VS.[k])) 
+                                                    then res <- false
+                                                    else f ks
+
                                       // vs2 doesn't contain one vs1's Memory-region -> False  
                                       with | :? System.Collections.Generic.KeyNotFoundException -> res <- false
                         in f keys1
@@ -54,17 +61,16 @@ type Lattice( alocs : aloc list ) =
         // Note: Over-approxime the tuple (a,b,c,d) = (vs1 U vs2) with the tuple (1,min,max,0)
         member this.Join states1 states2 = 
 
-            if states1.IsBot() || states2.IsTop() then states2
-            else if states1.IsTop() || states2.IsBot() then states1
-            else
+            let alocs1 = states1.ALocs
+            let alocs2 = states2.ALocs
+            let alocs = new Set<aloc>(alocs1)+new Set<aloc>(alocs2)
 
-                let alocs1 = states1.ALocs
-                let alocs2 = states2.ALocs
-                let alocs = new Set<aloc>(alocs1)+new Set<aloc>(alocs2)
-
-                // aloc*VS list from which will be built the new map
-                let mutable list = []
-                for aloc in alocs do
+            // aloc*VS list from which will be built the new map
+            let mutable list = []
+            for aloc in alocs do
+                // symbolic value for ⊥/⊤
+                if aloc="0" then ignore()
+                else
 
                     // if the current aloc is not contained in one of the two States, 
                     // then we take the other one element; 
@@ -77,49 +83,53 @@ type Lattice( alocs : aloc list ) =
                     try
                         vs1 <- states1.Map.[aloc]
                     with | :? System.Collections.Generic.KeyNotFoundException -> 
-                                        list <- [(aloc,states2.Map.[aloc])]; goon <- false
+                          list <- list@[(aloc,states2.Map.[aloc])]; goon <- false
                     try
                         vs2 <- states2.Map.[aloc]
                     with | :? System.Collections.Generic.KeyNotFoundException -> 
-                                        list <- [(aloc,states1.Map.[aloc])]; goon <- false
+                          list <- list@[(aloc,states1.Map.[aloc])]; goon <- false
 
                     // no exception has been raised
                     if goon then
 
                         // set of keys
                         let newVs = new ValueSet([])
-                        let s1 = new Set<MemoryRegion>(vs1.MemRegs)
-                        let s2 = new Set<MemoryRegion>(vs2.MemRegs)
+                        let s1 = new Set<MemoryRegion>(vs1.MemRegs())
+                        let s2 = new Set<MemoryRegion>(vs2.MemRegs())
                         let set = Set.toList (s1+s2)
 
                         // scan keys
-                        let rec f keys = 
+                        let rec f (keys : MemoryRegion list) = 
                             match keys with
-                            |[] -> list <- [(aloc,newVs)]
+                            |[] -> list <- list@[(aloc,newVs)]
                             |k::ks -> 
-                                    // if s1.Contains(k) and an exception is raised -> vs2.[k] = ⊥
-                                    if s1.Contains(k) then
-                                         try
-                                             let newSet = vs1.VS.[k]+vs2.VS.[k]
-                                             newVs.Add(k,(1,(Set.minElement newSet),(Set.maxElement newSet),0)); f ks
-                                            
-                                         with 
-                                         | :? System.Collections.Generic.KeyNotFoundException -> 
-                                              newVs.Add(k,(1,(Set.minElement vs1.VS.[k]),(Set.maxElement vs1.VS.[k]),0)); f ks
+                                    // if key.ID = -1 -> symbolic value, had to be wasted
+                                    if k.ID() = -1 then f ks
+                                    else
 
-                                    // else, if an exception is raised -> vs1.[k] = ⊥
-                                    else try 
-                                             let newSet = vs1.VS.[k]+vs2.VS.[k]
-                                             newVs.Add(k,(1,(Set.minElement newSet),(Set.maxElement newSet),0)); f ks
-                                         with 
-                                         | :? System.Collections.Generic.KeyNotFoundException -> 
+                                        // if s1.Contains(k) and an exception is raised -> vs2.[k] = ⊥
+                                        if s1.Contains(k) then
+                                             try
+                                                 let newSet = vs1.VS.[k]+vs2.VS.[k]
+                                                 newVs.Add(k,(1,(Set.minElement newSet),(Set.maxElement newSet),0)); f ks
+                                                
+                                             with 
+                                             | :? System.Collections.Generic.KeyNotFoundException -> 
+                                              newVs.Add(k,(1,(Set.minElement vs1.VS.[k]),(Set.maxElement vs1.VS.[k]),0)); f ks
+    
+                                        // else, if an exception is raised -> vs1.[k] = ⊥
+                                        else try 
+                                                 let newSet = vs1.VS.[k]+vs2.VS.[k]
+                                                 newVs.Add(k,(1,(Set.minElement newSet),(Set.maxElement newSet),0)); f ks
+                                             with 
+                                             | :? System.Collections.Generic.KeyNotFoundException -> 
                                               newVs.Add(k,(1,(Set.minElement vs2.VS.[k]),(Set.maxElement vs2.VS.[k]),0)); f ks
-                                      
+                                          
                         in f set
 
                     // go to the next aloc
                     else ignore()
-                new AbstractState(list)
+            new AbstractState(list)
 
         (** Operazioni non essenziali per il momento **)
 
