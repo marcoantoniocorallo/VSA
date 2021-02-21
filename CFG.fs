@@ -4,13 +4,18 @@ type CFG( entryNode : Node) =
 
         member this.EntryBlock() = entryNode :> INode
 
-        // returns the height of the graph, not the number of nodes
+        // number of nodes (including repetitions)
         member this.Length() = 
             let list = (entryNode :> INode).Succ()
-            let rec f ((l : INode list), (count : int)) =
-                match l with
+            let rec f succ count = 
+                match succ with
                 |[] -> count
-                |x::xs -> f (x.Succ(), (count+1))
-            in f (list, 1)
+                |x::xs -> 
+                        let rec g (succ1 : INode list) k = 
+                            match succ1 with
+                            |[] -> f xs k 
+                            |y::ys -> g ys (k+(f (y.Succ()) 1))                        
 
+                        in g (x.Succ()) count+1
+            in f list 1
 ;;
