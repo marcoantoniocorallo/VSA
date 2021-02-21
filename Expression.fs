@@ -9,8 +9,9 @@
  *
  * Added by me
  * Global dec : R1, R2,..., Rn
+ * SimpleAss : R1 = val		about an aloc global declared
  * Heap dec : R1, R2, ..., Rn
- * SimpleAss : R1 = val
+ * SimpleHAss : R1 = val	about an aloc dynamically declared
  *)
 
 type aloc = string;;
@@ -22,7 +23,11 @@ type Exp =
     |GeqConst of aloc * int 
     |LeqVar of aloc * aloc
 
-    |SimpleAss of aloc * int
     |GlobalDec of aloc list
+    |SimpleAss of aloc * int
+
     |HeapDec of aloc list
+    |SimpleHAss of aloc * int
+
+    |Return 
 ;;
