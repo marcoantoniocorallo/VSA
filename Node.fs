@@ -45,4 +45,6 @@ type Node(id : int, exp : Exp, succ : Node list ) =
         let node = o:?>Node 
         if node.ID()=this.ID() then true else false
 
+    override this.GetHashCode() = this.ID()
+
 ;;
