@@ -1,10 +1,14 @@
 (* Transfer functions : Exp -> (AbstractState -> AbstractState)
  *
- * GlobalDec : R1, R2,..., Rn / HeapDec : R1, R2,..., Rn
- * e.After := e.Before ∪ [R1 -> ⊤] ∪ [R2 -> ⊤] ∪ ... ∪ [Rn -> ⊤]
+ * GlobalDec : R1, R2,..., Rn ;; HeapDec : R1, R2,..., Rn
+ *     e.After := e.Before ∪ [R1 -> ⊤] ∪ [R2 -> ⊤] ∪ ... ∪ [Rn -> ⊤]
  * 
- * SimpleAss : R1 = k / SimpleHAss : R1 = k
- * e.After := e.Before \ {R1} ∪ [R1 -> k]
+ * SimpleAss : R1 = k ;; SimpleHAss : R1 = k
+ *    e.After := e.Before \ {R1} ∪ [R1 -> k]
+ *
+ * Ass1 : R1 = R2 + c 
+ *    let (R2 -> vs) ∈ e.Before
+ *     e.After := e.Before \ [R1 -> *] ∪ [R1 -> vs.AdjustByConst c]
  *)
 
 let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) = 
@@ -44,6 +48,8 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             abs 
         
         in (fun (x : AbstractState) -> f x )
+
+    |Ass1(aloc1,aloc2,cnst) -> (fun x -> L.AdjustByC x aloc1 aloc2 cnst)
 
     // TODO: Other cases
     |_ -> (fun (x : AbstractState) -> x)

@@ -103,6 +103,19 @@ type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) =
             with | :? System.Collections.Generic.KeyNotFoundException ->
                 this.Sets.Add(memReg, s) ; this.Tuples.Add(memReg, (1,s.MinimumElement, s.MaximumElement, 0))    
 
+        // fun : (a,b,c,d) -> (a,b,c,d) for each RIC (a,b,c,d) in this vs
+        member this.AdjustByConst(cnst : int) =        
+            for mr in this.Sets.Keys do
+
+                // ⊤ + c = ⊤ ; ⊥ + c = c
+                if this.IsTopOf(mr) then
+                    ignore()
+                else if this.IsBotOf(mr) then
+                    this.Add(mr, (1,cnst,cnst,0))
+                
+                else 
+                    this.Add(mr, match this.Tuples.[mr] with |(a,b,c,d) -> (a,b,c,d+cnst))
+
         // is a memoryRegion mr ⊤/⊥ ?
         member this.IsBotOf( mr : MemoryRegion ) = 
             try 
@@ -254,5 +267,26 @@ type ValueSet( list : (MemoryRegion * (int * int * int * int)) list ) =
         member this.IsTop vs = true
 
     end
+
+    // states -> states[aloc2+const/aloc1] where aloc+c = (a,b,c,d)->(a,b,c,d+const) for each RIC in aloc
+    member this.AdjustByC (states : AbstractState) (aloc1 : aloc) (aloc2 : aloc) cnst = 
+        let newStates = new AbstractState()
+        let ks = states.Keys |> Seq.toList
+
+        // clone abstract state 
+        for k in ks do
+            let memregs = states.[k].MemRegs()
+            let tuples = states.[k].Tuples.Values |> Seq.toList
+            let l = List.zip memregs tuples
+            newStates.Add(k,new ValueSet(l))
+
+        // subst newStates[aloc2+c/aloc1]
+        let mrs = newStates.[aloc2].MemRegs()
+        let tps = newStates.[aloc2].Tuples.Values |> Seq.toList
+        let newVS = new ValueSet( List.zip mrs tps )
+        newVS.AdjustByConst cnst
+        newStates.Remove(aloc1) |> ignore
+        newStates.Add(aloc1,newVS)
+        newStates
 
 and AbstractState = Dictionary<aloc,ValueSet>;;
