@@ -15,6 +15,6 @@
 12. Work-List.fs
 13. Main.fs
 
-After that, you can define your Control Flow Graph cfg and run
+After that, you can define your Control Flow Graph *cfg* and run
 
     main cfg
