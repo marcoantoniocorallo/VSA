@@ -14,7 +14,7 @@
 let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) = 
 
     // Lattice instance for using ILattice methods (join,meet,...)
-    let L = new ValueSet("bot")
+    let L = new ValueSet(Bottom)
 
     match e with
 
@@ -27,7 +27,7 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
         // define AbstractState of <aloc, ⊤> for each aloc in the exp
         // note: Global mem-reg = ⊤, the other ones = ⊥
         let abs = new AbstractState() in
-        let vars = alocs |> List.map (fun x -> abs.Add(x,new ValueSet(new MemoryRegion(RegionType.Global,1),"top"))) in
+        let vars = alocs |> List.map (fun x -> abs.Add(x,new ValueSet(new MemoryRegion(RegionType.Global,1),Top))) in
         (fun (x : AbstractState) -> (L:>ILattice<AbstractState>).Join x abs)
 
     |SimpleAss(aloc,n) -> // returns fun : x -> x[n/aloc] 
@@ -44,7 +44,7 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
                 abs.Add(k,new ValueSet(l))
 
             // subst clone.Global[n/aloc]
-            abs.[aloc].Add(new MemoryRegion(RegionType.Global,1),(1,n,n,0))
+            abs.[aloc].Add(new MemoryRegion(RegionType.Global,1),Ric(1,n,n,0))
             abs 
         
         in (fun (x : AbstractState) -> f x )
