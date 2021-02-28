@@ -77,18 +77,14 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
         // Adds new element (memoryRegion, RIC)
         // note: if the memoryRegion already exists, the value will be overwritten
         member this.Add(memReg, ric) = 
-            try
-                let key = this.MemRegs() |> Seq.find (fun (x : MemoryRegion) -> if x=memReg then true else false)
-                in this.Tuples.[key] <- ric
-            with | :? System.Collections.Generic.KeyNotFoundException ->
-                this.Tuples.Add(memReg, ric)
+            let key = this.MemRegs() |> Seq.find (fun (x : MemoryRegion) -> if x=memReg then true else false)
+            in this.Tuples.[key] <- ric
 
-        member this.Add(memReg, s : Set<int>) = 
+        member this.Add(memReg : MemoryRegion, s : Set<int>) =
+            let key = this.MemRegs() |> Seq.find (fun (x : MemoryRegion) -> if x=memReg then true else false) 
             try
-                let key = this.MemRegs() |> Seq.find (fun (x : MemoryRegion) -> if x=memReg then true else false)
-                in this.Tuples.[key] <- Ric(1,s.MinimumElement, s.MaximumElement, 0)
-            with | :? System.Collections.Generic.KeyNotFoundException ->
-                this.Tuples.Add(memReg, Ric(1,s.MinimumElement, s.MaximumElement, 0))    
+                 this.Tuples.[key] <- Ric(1,s.MinimumElement, s.MaximumElement, 0)
+            with | :? System.ArgumentException -> this.Tuples.[key] <- Bottom 
 
         // fun : (a,b,c,d) -> (a,b,c,d+cnst) for each RIC (a,b,c,d) in this vs
         member this.AdjustByConst(cnst : int) =  
@@ -218,8 +214,37 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
 
             in f alocs
 
-        // Returns the intersection (meet) of value-sets vs1 and vs2
-        member this.Meet vs1 vs2 = vs1            
+        // Returns the intersection (meet) of states1.[aloc] and states2.[aloc] for each aloc
+        member this.Meet states1 states2 = 
+
+            let newAbs = new AbstractState()
+            
+            // meet between two VS (sub-meet)
+            let MEET (vs1 : ValueSet) (vs2 : ValueSet) : ValueSet = 
+                let newVS = new ValueSet(Bottom)
+
+                let rec g memregs = 
+                    match memregs with
+                    |[] -> newVS
+                    |x::xs -> 
+                        match (vs1.IsBotOf(x), vs1.IsTopOf(x), vs2.IsBotOf(x), vs2.IsTopOf(x)) with
+                        |(true,_,_,_)
+                        |(_,_,true,_) -> g xs
+                        |(_,true,_,_) -> newVS.Add(x, vs2.Tuples.[x]) ; g xs
+                        |(_,_,_,true) -> newVS.Add(x, vs1.Tuples.[x]) ; g xs
+
+                        |(_,_,_,_) -> newVS.Add(x, (vs1.Sets.[x] |> Set.intersect vs2.Sets.[x]) ) ; g xs 
+
+                in g (vs1.MemRegs())
+
+            // Intersection of alocs
+            let alocs = ((Set.ofSeq (states1.Keys)) |> Set.intersect (Set.ofSeq (states2.Keys))) |> Set.toList
+
+            let rec f a_locs = 
+                match a_locs with
+                |[] -> newAbs
+                |x::xs -> newAbs.Add(x, MEET states1.[x] states2.[x]) ; f xs
+            in f alocs
 
         (** Operazioni non essenziali per il momento **)
 
