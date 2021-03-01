@@ -14,7 +14,7 @@ let main cfg =
  *    Return;   // [x -> {15,5}; y -> {10,⊥}]
  *)
 
-// Uncomment to run
+// Test case 0: Uncomment to run
 (*
 let cfg0 = 
     new CFG(
@@ -53,7 +53,7 @@ abs.[Node(4, Return, [])]
  *    Return;       // [x -> {⊤,1} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
  *)
 
-// Uncomment from here
+// Test case 1: Uncomment from here
 (*
 let cfg1 = 
     new CFG(
