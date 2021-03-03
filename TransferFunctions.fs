@@ -75,6 +75,8 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
             // subst in clone.Global the value (oldRIC MEET [-inf, c])
             let values = oldAbs.[aloc].Sets.[MemoryRegion(RegionType.Global,1)] |> Set.toList
+
+                                            // set = values MEET [-inf, c]
             let set = new Set<int>(values |> List.filter (fun x -> if x<=c then true else false))
             abs.[aloc].Add(new MemoryRegion(RegionType.Global,1), set)
             abs
@@ -96,6 +98,8 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
         
             // subst in clone.Global the value (oldRIC MEET [c, inf])
             let values = oldAbs.[aloc].Sets.[MemoryRegion(RegionType.Global,1)] |> Set.toList
+
+                                        // set = values MEET [c, inf]
             let set = new Set<int>(values |> List.filter (fun x -> if x>=c then true else false))
             abs.[aloc].Add(new MemoryRegion(RegionType.Global,1), set)
             abs

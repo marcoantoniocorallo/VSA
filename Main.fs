@@ -95,3 +95,65 @@ asb.[Node(7, Return, [])]
 *)
 
 (*************************************************************)
+
+(*    var x,y        // []
+ *    x = 3          // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
+ *    y = 10         // [x -> {3,⊥} ; y -> {⊤,⊥}]
+ *    if (x<=5) then // [x -> {3,⊥} ; y -> {10,⊥}]
+ *        y = 11     // [x -> {3,⊥} ; y -> {10,⊥}]
+ *        x = 101    // [x -> {3,⊥} ; y -> {11,⊥}]
+ *    else           // TODO
+ *        x = 100    // [x -> {3,⊥} ; y -> {10,⊥}]
+ *    var z          // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥}]
+ *    x = z+1        // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
+ *    Return;        // [x -> {⊤,1} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
+ *)
+
+// Test case 2: Uncomment from here
+(*
+let cfg2 = 
+    new CFG(
+        new Node(0, GlobalDec(["x";"y"]),[ 
+           new Node(1, SimpleAss("x",3), [
+               new Node(2, SimpleAss("y",10),[
+                    new Node(3, LeqConst("x",5), [
+
+                        // then
+                        new Node(4, SimpleAss("y",11), [
+                            new Node(5, SimpleAss("x",101), [
+                                new Node(6, GlobalDec(["z"]), [
+                                    new Node(7, Ass1("x","x",1),[
+                                        new Node(9, Return, [])
+                                    ])
+                                ])
+                            ])
+                        ])
+
+                        // else
+                        new Node(8, SimpleAss("x",100), [
+                            new Node(6, GlobalDec(["z"]), [
+                                new Node(7, Ass1("x","z",1),[
+                                    new Node(9, Return, [])
+                                ])
+                            ])
+                        ]);
+
+                    ])
+               ] )
+           ]);
+        ])
+    )
+;;
+
+let asb = main cfg2
+asb.[Node(0, GlobalDec(["x";"y"]), [])]
+asb.[Node(1, SimpleAss("x",3),[])]
+asb.[Node(2, SimpleAss("y",10),[])]
+asb.[Node(3, GeqConst("x",5), [])]
+asb.[Node(4, SimpleAss("y",11), [])]
+asb.[Node(5, SimpleAss("x",101), [])]
+asb.[Node(6, GlobalDec(["z"]), [])]
+asb.[Node(7, Ass1("x","x",1), [])]
+asb.[Node(8, SimpleAss("x",100), [])]
+asb.[Node(9, Return, [])]
+*)
