@@ -18,6 +18,10 @@
  *    let [R1 -> vs1] ∈ e.Before and vsc = ([c, ∞], ⊤, ..., ⊤)
  *    e.After := e.Before − [R1 -> *] ∪ [R1 -> vs1 MEET vsc ]
  *
+ * LeqVar : R1 ≤ R2
+ *    let [R1 -> vs1 ], [R2 -> vs2] ∈ e.Before and vslb = RemoveUpperBounds(vs2)
+ *    e.After := e.Before − [R1 -> ∗] ∪ [R1 -> vs1 MEET vslb]
+ *
  *)
 
 let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) = 
@@ -64,29 +68,62 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
         
         let f (oldAbs : AbstractState) =
         
-            // must create a clone of the old abstract state
-            let abs = new AbstractState()
-            let ks = oldAbs.Keys |> Seq.toList
-            for k in ks do
-                let memregs = oldAbs.[k].MemRegs()
-                let tuples = oldAbs.[k].Tuples.Values |> Seq.toList
-                let l = List.zip memregs tuples
-                abs.Add(k,new ValueSet(l))
+            // ⊤ MEET [-inf,c] = [-inf,c] but is hard to compute, 
+            // then returns ⊤: not very accurate but sound 
+            if oldAbs.[aloc].Tuples.[MemoryRegion(RegionType.Global,1)] = Top then oldAbs
+            else
 
-            // subst in clone.Global the value (oldRIC MEET [-inf, c])
-            let values = oldAbs.[aloc].Sets.[MemoryRegion(RegionType.Global,1)] |> Set.toList
+                // must create a clone of the old abstract state
+                let abs = new AbstractState()
+                let ks = oldAbs.Keys |> Seq.toList
+                for k in ks do
+                    let memregs = oldAbs.[k].MemRegs()
+                    let tuples = oldAbs.[k].Tuples.Values |> Seq.toList
+                    let l = List.zip memregs tuples
+                    abs.Add(k,new ValueSet(l))
 
-                                            // set = values MEET [-inf, c]
-            let set = new Set<int>(values |> List.filter (fun x -> if x<=c then true else false))
-            abs.[aloc].Add(new MemoryRegion(RegionType.Global,1), set)
-            abs
+                // subst in clone.Global the value (oldRIC MEET [-inf, c])
+                let values = oldAbs.[aloc].Sets.[MemoryRegion(RegionType.Global,1)] |> Set.toList
+
+                                                // set = values MEET [-inf, c]
+                let set = new Set<int>(values |> List.filter (fun x -> if x<=c then true else false))
+                abs.[aloc].Add(new MemoryRegion(RegionType.Global,1), set)
+                abs
 
         in (fun (x : AbstractState) -> f x )
         
     |GeqConst(aloc,c) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs MEET [c, inf]])
         
         let f (oldAbs : AbstractState) =
+
+            // ⊤ MEET [c,inf] = [c,inf] but is hard to compute, 
+            // then returns ⊤: not very accurate but sound 
+            if oldAbs.[aloc].Tuples.[MemoryRegion(RegionType.Global,1)] = Top then oldAbs
+            else
         
+                // must create a clone of the old abstract state
+                let abs = new AbstractState()
+                let ks = oldAbs.Keys |> Seq.toList
+                for k in ks do
+                    let memregs = oldAbs.[k].MemRegs()
+                    let tuples = oldAbs.[k].Tuples.Values |> Seq.toList
+                    let l = List.zip memregs tuples
+                    abs.Add(k,new ValueSet(l))
+            
+                // subst in clone.Global the value (oldRIC MEET [c, inf])
+                let values = oldAbs.[aloc].Sets.[MemoryRegion(RegionType.Global,1)] |> Set.toList
+
+                                            // set = values MEET [c, inf]
+                let set = new Set<int>(values |> List.filter (fun x -> if x>=c then true else false))
+                abs.[aloc].Add(new MemoryRegion(RegionType.Global,1), set)
+                abs
+
+        in (fun (x : AbstractState) -> f x )
+
+    |LeqVar(R1,R2) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs1 MEET RemoveUpperBound(vs2)])
+
+        let f (oldAbs : AbstractState) = 
+
             // must create a clone of the old abstract state
             let abs = new AbstractState()
             let ks = oldAbs.Keys |> Seq.toList
@@ -95,16 +132,30 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
                 let tuples = oldAbs.[k].Tuples.Values |> Seq.toList
                 let l = List.zip memregs tuples
                 abs.Add(k,new ValueSet(l))
-        
-            // subst in clone.Global the value (oldRIC MEET [c, inf])
-            let values = oldAbs.[aloc].Sets.[MemoryRegion(RegionType.Global,1)] |> Set.toList
 
-                                        // set = values MEET [c, inf]
-            let set = new Set<int>(values |> List.filter (fun x -> if x>=c then true else false))
-            abs.[aloc].Add(new MemoryRegion(RegionType.Global,1), set)
+            // abs.R1.[mr] <- abs.[R1].[mr] MEET vslb.[mr] for each mr
+            for mr in (abs.[R1].MemRegs()) do
+
+                match (abs.[R1].IsTopOf(mr),abs.[R1].IsBotOf(mr),abs.[R2].IsTopOf(mr),abs.[R2].IsBotOf(mr)) with
+                
+                // ⊤ MEET ⊤ = ⊤ ; VS MEET ⊤ = VS ; ⊤ MEET RmUppBound(VS) = ⊤ (not very accurate, but sound!) 
+                |(true,_,_,false)
+                |(false,false,true,_) -> ignore()
+                
+                // VS MEET ⊥ = ⊥
+                |(false,false,false,true) -> abs.[R1].Add(mr,abs.[R2].Tuples.[mr])
+
+                |(_,_,_,_) ->
+
+                    let values1 = oldAbs.[R1].Sets.[mr] |> Set.toList
+                    let values2 = oldAbs.[R2].Sets.[mr]
+                    let set = new Set<int>(values1 |> List.filter 
+                                  (fun x -> (Set.contains x values2) || (x > Set.maxElement values2) ) )
+                    abs.[R1].Add(mr,set)
+        
             abs
 
-        in (fun (x : AbstractState) -> f x )
+        in (fun (x : AbstractState) -> f x)
 
     // TODO: Other cases
     |_ -> (fun (x : AbstractState) -> x)
