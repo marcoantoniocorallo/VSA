@@ -1,9 +1,9 @@
 (* Represents a memory region: can be an AR, Heap or Global region  *)
 
 type RegionType =
-| AR = 'a'
-| Global = 'g'
-| Heap = 'h'
+| AR = 'A'
+| Global = 'G'
+| Heap = 'H'
 ;;
 
 type MemoryRegion(regType : RegionType, id : int) =
@@ -23,6 +23,8 @@ type MemoryRegion(regType : RegionType, id : int) =
         let sID = string (this.ID())
         (sType+sID).GetHashCode()        
         
+    override this.ToString() = (string (this.Type())+", "+string (this.ID()))
+
     // Implements IComparable in order to use MemoryRegion objs as keys in hashmap
     interface System.IComparable with
 

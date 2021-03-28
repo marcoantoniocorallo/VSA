@@ -1,6 +1,5 @@
-(* ValueSet is a r-tuple of Reduced Interval Congruence (RIC) 
- * of the form (a,b,c,d) = { aZ + d | Z is an el. of [b,c] } 
- * the constructor takes a (MemoryRegion * RIC ) list.
+(* ValueSet is a r-tuple of Values, which can be ⊥, ⊤ or an interval of ints;
+ * the constructor takes a (MemoryRegion * Values) list.
  *
  * There are two ctor for the Top and Bottom element
  * ⊤ = [ R, ..., R ] that are the sets that contains every other set 
@@ -10,109 +9,85 @@
 
 open System.Collections.Generic
 
-type ValueSet( list : (MemoryRegion * RIC) list ) = 
+type ValueSet( list : (MemoryRegion * Values) list ) = 
     
     class
+    
+        // stores the pairs of the input list in a local map, so that it can be modified by some methods
+        let map = new Dictionary<MemoryRegion, Values>()
 
-        // check the correctness of the input parameter
-        let check = if list = [] then failwith("Empty input list" ) else ignore()
-    
-        // stores the pairs of the input list in a map
-        let tuples = new Dictionary<MemoryRegion, RIC>()
-            
-        // calculates RIC from the tuple
-        let rec calcSet (a, b, c, d) = 
-            if b=c then [a*b+d]
-            else [a*b+d]@(calcSet (a, (b+1), c, d))
-    
-        // Fills the maps
-        let rec f l = 
-            match l with
-            |[] -> ignore()
-            |(memReg,ric)::xs -> 
-                // Add the couple in the maps of sets and tuples 
-                tuples.Add(memReg, ric) ;
-                f xs
+        // Fills the map scanning the list
+        let listToMap l = l |> List.map (fun (x : (MemoryRegion * Values) ) -> map.Add(fst x, snd x)) |> ignore
 
         // Adds no-declared MRs, initializing them with the value ⊥
-        let g l = 
+        let addMR l = 
             let newl = 
                 (availableMRs |> List.filter (fun x -> if l |> List.map fst |> List.contains x then false else true) 
                      |> List.map (fun x -> (x,Bottom)) )@l
-            in f newl
+            in listToMap newl
+
+        // Converts any intervals [-inf, inf] to ⊤ and raise exception for illegal intervals
+        let checkInterval (el : Values ) : Values = 
+            match el with 
+            |Interval(l,r) when l = NegativeInf && r = PositiveInf -> Top
+            |Interval(l,r) when l>r -> failwith("Wrong Interval")
+            |other -> other
     
-        // initializes the hashmap
-        do
-            check
-            g list
+        // checks not-empty list, converts any interval [-inf,inf] to ⊤, 
+        // completes the list with missing MRs and initializes the hashmap
+        let init =
+            if list=[] then failwith("Empty input list")
+            else list |> List.map (fun ((mr, v) : MemoryRegion * Values) -> (mr, checkInterval v ) ) |> addMR
+        
+        do  init
             
         // Ctor for top and bottom element and methods for work with these special values
-        new(mr : MemoryRegion, ric : RIC) = new ValueSet([mr,ric])
-
-        new(ric : RIC) = new ValueSet(availableMRs |> List.map (fun (x : MemoryRegion) -> (x,ric)))
+        new(mr : MemoryRegion, v : Values) = new ValueSet([mr,v])
+        new(v : Values) = new ValueSet(availableMRs |> List.map (fun (x : MemoryRegion) -> (x,v)))
     
         (**************************************************************************)
         (************************ Methods and attributes **************************)
         (**************************************************************************)
     
-        // references the local vars so that they can be modified (this.Add(...))
-        member this.Tuples = tuples
-
-        // Creates a map containing a set for each tuple in Tuples
-        member this.Sets = 
-            let sets = new Dictionary<MemoryRegion, Set<int>>()
-            let rec scan tpls = 
-                match tpls with
-                |[] -> sets
-                |(memreg,ric)::xs -> 
-                    (match ric with
-                    |Top | Bottom -> sets.Add(memreg,new Set<int>([]))
-                    |Ric(a,b,c,d) -> sets.Add(memreg,new Set<int>(calcSet(a,b,c,d)))) ;
-                    scan xs
-            in scan (this.Tuples |> Seq.toList |> List.map (fun (x : KeyValuePair<MemoryRegion,RIC> )-> (x.Key,x.Value)))
+        // references the local map so that it can be modified (this.Add(...))
+        member this.Map = map
            
         // returns a list of keys/memory regions
-        member this.MemRegs() = this.Tuples.Keys |> Seq.toList
+        member this.MemRegs() = this.Map.Keys |> Seq.toList
+
+        // returns a deep copy of this
+        member this.Clone() = new ValueSet(this.Map.Values 
+                                |> Seq.toList 
+                                |> List.zip (this.Map.Keys |> Seq.toList))
     
-        // Adds new element (memoryRegion, RIC)
-        // note: if the memoryRegion already exists, the value will be overwritten
-        member this.Add(memReg, ric) = 
+        // Adds new element (memoryRegion, Values)
+        // the existing memoryRegion's value will be overwritten
+        member this.AddChange(memReg, values) = 
             let key = this.MemRegs() |> Seq.find (fun (x : MemoryRegion) -> if x=memReg then true else false)
-            in this.Tuples.[key] <- ric
+            in  this.Map.[key] <- checkInterval values
 
-        member this.Add(memReg : MemoryRegion, s : Set<int>) =
-            let key = this.MemRegs() |> Seq.find (fun (x : MemoryRegion) -> if x=memReg then true else false) 
-            try
-                 this.Tuples.[key] <- Ric(1,s.MinimumElement, s.MaximumElement, 0)
-            with | :? System.ArgumentException -> this.Tuples.[key] <- Bottom 
-
-        // fun : (a,b,c,d) -> (a,b,c,d+cnst) for each RIC (a,b,c,d) in this vs
+        // Adjust each interval in this VS by a constant
         member this.AdjustByConst(cnst : int) =  
-   
-            for mr in this.Tuples.Keys do
+            for mr in this.Map.Keys do
+
+                match this.Map.[mr] with
+                |Interval(Int(l),Int(r)) -> this.AddChange(mr,Interval(Int(l+cnst),Int(r+cnst)))
+                |Interval(NegativeInf, Int(r)) -> this.AddChange(mr,Interval(NegativeInf,Int(r+cnst)))
+                |Interval(Int(l), PositiveInf) -> this.AddChange(mr,Interval(Int(l+cnst),PositiveInf))
 
                 // ⊤ + c = ⊤ ; ⊥ + c = c
-                match this.Tuples.[mr] with
-                |Ric(a,b,c,d) -> this.Add(mr,Ric(a,b,c,d+cnst))
-                |Bottom -> this.Add(mr, Ric(1,cnst,cnst,0))
+                |Bottom -> this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
                 |Top -> ignore()
 
+                |_ -> failwith("Wrong interval")
+
         // is a memoryRegion mr ⊤/⊥ ?
-        member this.IsBotOf( mr : MemoryRegion ) =  if this.Tuples.[mr]=Bottom then true else false
-    
-        member this.IsTopOf( mr : MemoryRegion ) =  if this.Tuples.[mr]=Top then true else false
+        member this.IsBotOf( mr : MemoryRegion ) =  if this.Map.[mr]=Bottom then true else false
+        member this.IsTopOf( mr : MemoryRegion ) =  if this.Map.[mr]=Top then true else false
     
         // this is ⊤/⊥ iff memreg = ⊤/⊥ for each memreg
         member this.IsBot() = this.MemRegs() |> Seq.forall (fun (x : MemoryRegion) -> this.IsBotOf(x) )
-    
         member this.IsTop() = this.MemRegs() |> Seq.forall (fun (x : MemoryRegion) -> this.IsTopOf(x) )
-        
-        // Like MemRegs/Sets/Tuples, but shows the MemoryRegion in a more readable way
-        member this.ShowMemRegs() = this.Sets.Keys |> Seq.toList |> List.map (fun (x : MemoryRegion) -> (x.Type(), x.ID()))
-    
-        member this.ShowSets() = this.Sets |> Seq.toList |> List.map (fun ( x : KeyValuePair<MemoryRegion, Set<int>> ) -> ( x.Key.Type(), x.Key.ID() ), x.Value )
-    
-        member this.ShowTuples() = this.Tuples |> Seq.toList |> List.map (fun ( x : KeyValuePair<MemoryRegion, RIC> ) -> ( x.Key.Type(), x.Key.ID() ), x.Value )
     
     end
 
@@ -122,11 +97,7 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
 
     interface ILattice<AbstractState> with
     (* "The following operators are defined for value-sets. 
-     *  All operators are pointwise applications of the corresponding RIC operator"
-     *  
-     * vs1 < vs2 IFF vs1[i] ⊆ vs2[i] for i=0,...,vs1.Size
-     * vs1 JOIN vs2 -> RICvs1-i JOIN RICvs2-i per i=0,...,vs.Size
-     * vs1 MEET vs2 -> RICvs1-i MEET RICvs2-i per i=0,...,vs.Size
+     *  All operators are pointwise applications of the corresponding intervals operator"
      *)
 
         // Bottom element = (<aloc-0,⊥>;...;<aloc-n,⊥>)
@@ -139,6 +110,8 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
         
         // Returns true if the value-set states1.[aloc] is a subset of states2.[aloc], for each aloc in s1
         // false otherwise
+        // vs1 < vs2 IFF vs1[mr] ⊆ vs2[mr] for each memreg mr
+        // [a, b] < [c, d] IFF a ≥ c ∧ b ≤ d
         member this.Leq states1 states2 = 
             
             // scan list of a-locs
@@ -154,21 +127,11 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
                         |[] -> f als
                         |mr::mrs -> 
 
-                            // Compare the VS of the same memory-region for the same a-loc
-                            // states1.[al].Sets.[mr] with states2.[al].Sets.[mr] 
-                            match (states1.[al].IsBotOf(mr), states1.[al].IsTopOf(mr),
-                                   states2.[al].IsBotOf(mr), states2.[al].IsTopOf(mr)) with
-
-                            // ⊥ < something or something < ⊤        
-                            |(true,_,_,_)
-                            |(_,_,_,true) -> g mrs
-                            
-                            // ⊤ < something or something < ⊥
-                            |(_,true,_,_)
-                            |(_,_,true,_) -> false
-
-                            |(_,_,_,_) -> if states1.[al].Sets.[mr].IsSubsetOf(states2.[al].Sets.[mr])
-                                          then g mrs else false
+                            // Compare the values of the same memory-region for the same a-loc
+                            // states1.[al].Map.[mr] with states2.[al].Map.[mr] 
+                            match (states1.[al].Map.[mr], states2.[al].Map.[mr]) with
+                            |(Interval(l1,r1), Interval(l2,r2)) -> if l1>=l2 && r1<=r2 then g mrs else false
+                            |values1, values2 -> if values1<=values2 then g mrs else false 
 
                     in g (states1.[al].MemRegs())
             in 
@@ -176,9 +139,9 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
             with | :? System.Collections.Generic.KeyNotFoundException -> false
                     
         // Returns the union (join) of states1.[aloc] and states2.[aloc] for each aloc
-        // if exist aloc : aloc ∈ states1 ^ aloc ∉ states2 
-        //    -> ( states1[aloc] U states2[aloc] = states1[aloc] U ⊥ ) and vice versa
-        // Note: Over-approxime the tuple (a,b,c,d) = (vs1 U vs2) with the tuple (1,min,max,0)
+        // if exist aloc : aloc ∈ states1 ∧ aloc ∉ states2 
+        //    -> ( states1[aloc] U states2[aloc] = states1[aloc] U ⊥ = states1[aloc] ) and vice versa
+        // [a, b] U [c, d] = [min(a,c), max(b,d)]
         member this.Join states1 states2 = 
 
             let newState = new AbstractState(states1)
@@ -186,17 +149,24 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
             // union between two VS (sub-join)
             let JOIN (vs1 : ValueSet) (vs2 : ValueSet) : ValueSet = 
                 let newVS = new ValueSet(vs1.MemRegs() |> 
-                                         List.map (fun (x : MemoryRegion) -> (x,vs1.Tuples.[x]))) 
+                                         List.map (fun (x : MemoryRegion) -> (x,vs1.Map.[x]))) 
                 let rec g memregs = 
                     match memregs with
                     |[] -> newVS
-                    |x::xs -> match (vs1.IsBotOf(x), vs1.IsTopOf(x), vs2.IsBotOf(x), vs2.IsTopOf(x)) with
-                              |(true,_,_,_)
-                              |(_,_,_,true) -> newVS.Add(x, vs2.Tuples.[x]) ; g xs
-                              |(_,true,_,_)
-                              |(_,_,true,_) -> g xs
+                    |x::xs -> 
+                        match (vs1.IsBotOf(x), vs1.IsTopOf(x), vs2.IsBotOf(x), vs2.IsTopOf(x)) with
+                        // { ⊤ U _ | _ U ⊥ } -> vs1.[x] 
+                        |(_,true,_,_)
+                        |(_,_,true,_) -> g xs                              
+                        // { ⊥ U _ | _ U ⊤ } -> vs2.[x]
+                        |(true,_,_,_)
+                        |(_,_,_,true) -> newVS.AddChange(x, vs2.Map.[x]) ; g xs
 
-                              |(_,_,_,_) -> newVS.Add(x, new Set<int>(vs1.Sets.[x]+vs2.Sets.[x])) ; g xs
+                        |(_,_,_,_) -> 
+                            match vs1.Map.[x], vs2.Map.[x] with 
+                            |Interval(a,b),Interval(c,d) -> newVS.AddChange(x,Interval(min a c,max b d))
+                            |_,_ -> failwith("Unexpected case")
+                            g xs
      
                 in g (vs2.MemRegs())
 
@@ -209,12 +179,16 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
                     
                     // if current key not exists in states1 -> enter it
                     // otherwise, states1.[key] = (states1.[key] JOIN states2.[key])
-                    if states1.ContainsKey x then newState.[x] <- JOIN states1.[x] states2.[x] ; f xs
-                    else newState.Add(x,states2.[x]) ; f xs
+                    if states1.ContainsKey x then newState.[x] <- JOIN states1.[x] states2.[x]
+                    else newState.Add(x,states2.[x])
+                    f xs
 
             in f alocs
 
         // Returns the intersection (meet) of states1.[aloc] and states2.[aloc] for each aloc
+        //                        [max(a, c), min(b, d)] if max(a,c) ≤ min(b,d)
+        // [a, b] MEET [c, d] = {
+        //                        ⊥ otherwise
         member this.Meet states1 states2 = 
 
             let newAbs = new AbstractState()
@@ -228,12 +202,21 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
                     |[] -> newVS
                     |x::xs -> 
                         match (vs1.IsBotOf(x), vs1.IsTopOf(x), vs2.IsBotOf(x), vs2.IsTopOf(x)) with
+                        // { ⊥ MEET _ | _ MEET ⊥ } -> ⊥
                         |(true,_,_,_)
                         |(_,_,true,_) -> g xs
-                        |(_,true,_,_) -> newVS.Add(x, vs2.Tuples.[x]) ; g xs
-                        |(_,_,_,true) -> newVS.Add(x, vs1.Tuples.[x]) ; g xs
+                        // { ⊤ MEET x | x MEET ⊤ } -> x 
+                        |(_,true,_,_) -> newVS.AddChange(x, vs2.Map.[x]) ; g xs
+                        |(_,_,_,true) -> newVS.AddChange(x, vs1.Map.[x]) ; g xs
 
-                        |(_,_,_,_) -> newVS.Add(x, (vs1.Sets.[x] |> Set.intersect vs2.Sets.[x]) ) ; g xs 
+                        |(_,_,_,_) ->
+                            match vs1.Map.[x], vs2.Map.[x] with 
+                            |Interval(a,b),Interval(c,d) -> 
+                                let l = max a c
+                                let r = min b d 
+                                newVS.AddChange(x, (if l <= r then Interval(l,r) else Bottom ) )
+                            |_,_ -> failwith("Unexpected case")                              
+                            g xs 
 
                 in g (vs1.MemRegs())
 
@@ -246,10 +229,11 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
                 |x::xs -> newAbs.Add(x, MEET states1.[x] states2.[x]) ; f xs
             in f alocs
 
-        (** Operazioni non essenziali per il momento **)
+        // Returns the abstract state obtained by widening states1.[aloc] 
+        // with respect to states2.[aloc] for each aloc
+        member this.Widen states1 states2 = states1
 
-        // TODO:
-        member this.Widen vs1 vs2 = vs1
+        (** Operazioni non essenziali per il momento **)
 
         // TODO:
         member this.Narrow vs1 vs2 = vs1
@@ -268,25 +252,17 @@ type ValueSet( list : (MemoryRegion * RIC) list ) =
 
     end
 
-    // states -> states[aloc2+const/aloc1] where aloc+c = (a,b,c,d)->(a,b,c,d+const) for each RIC in aloc
-    member this.AdjustByC (states : AbstractState) (aloc1 : aloc) (aloc2 : aloc) cnst = 
+    // states -> states[VSk+c/VSk] where VSk is k's VS = [a,b], and VSk+c = [a+c,b+c]  
+    member this.AdjustByC (states : AbstractState) (aloc : aloc) cnst = 
         let newStates = new AbstractState()
         let ks = states.Keys |> Seq.toList
 
         // clone abstract state 
         for k in ks do
-            let memregs = states.[k].MemRegs()
-            let tuples = states.[k].Tuples.Values |> Seq.toList
-            let l = List.zip memregs tuples
-            newStates.Add(k,new ValueSet(l))
+            newStates.Add(k,states.[k].Clone())
 
-        // subst newStates[aloc2+c/aloc1]
-        let mrs = newStates.[aloc2].MemRegs()
-        let tps = newStates.[aloc2].Tuples.Values |> Seq.toList
-        let newVS = new ValueSet( List.zip mrs tps )
-        newVS.AdjustByConst cnst
-        newStates.Remove(aloc1) |> ignore
-        newStates.Add(aloc1,newVS)
+        // subst newStates[aloc+c/aloc]
+        newStates.[aloc].AdjustByConst(cnst)
         newStates
 
 and AbstractState = Dictionary<aloc,ValueSet>;;
