@@ -3,7 +3,7 @@
 #### In order to run ValueSet Analysis in your own test cases, you have to compile classes and modules in the following order:
 1. Expression.fs
 2. MemoryRegion.fs
-3. RIC.fs
+3. Values.fs
 4. INode.fsi
 5. Node.fs
 6. ICFG.fsi
