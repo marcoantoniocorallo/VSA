@@ -81,6 +81,18 @@ type ValueSet( list : (MemoryRegion * Values) list ) =
 
                 |_ -> failwith("Wrong interval")
 
+        // Remove Upper/Lower Bounds of each component RIC
+        member this.RmUpperBounds() =
+            for mr in this.Map.Keys do
+                match this.Map.[mr] with
+                |Interval(l,r) -> this.AddChange(mr,Interval(l,PositiveInf))
+                |_ -> ignore()
+        member this.RmLowerBounds() =
+            for mr in this.Map.Keys do
+                match this.Map.[mr] with
+                |Interval(l,r) -> this.AddChange(mr,Interval(NegativeInf,r))
+                |_ -> ignore()
+
         // is a memoryRegion mr ⊤/⊥ ?
         member this.IsBotOf( mr : MemoryRegion ) =  if this.Map.[mr]=Bottom then true else false
         member this.IsTopOf( mr : MemoryRegion ) =  if this.Map.[mr]=Top then true else false
