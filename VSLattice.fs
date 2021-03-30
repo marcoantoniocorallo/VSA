@@ -243,7 +243,28 @@ type ValueSet( list : (MemoryRegion * Values) list ) =
 
         // Returns the abstract state obtained by widening states1.[aloc] 
         // with respect to states2.[aloc] for each aloc
-        member this.Widen states1 states2 = states1
+        member this.Widen states1 states2 = 
+
+            let newStates = new AbstractState()
+            let ks = states1.Keys |> Seq.toList
+
+            // clone abstract state 
+            for k in ks do
+                newStates.Add(k,states1.[k].Clone())
+
+                for memreg in (states1.[k].MemRegs()) do
+                    match states1.[k].Map.[memreg],states2.[k].Map.[memreg] with
+                    |Interval(l1,r1),Interval(l2,r2) -> 
+                        match (l2<l1),(r2>r1) with
+                        |true, true -> newStates.[k].AddChange(memreg,Top)
+                        |true,_ -> newStates.[k].AddChange(memreg,Interval(NegativeInf,r1))
+                        |_,true -> newStates.[k].AddChange(memreg,Interval(l1,PositiveInf))
+                        |_,_ -> ignore()
+                    // Bottom,_ / _,Top
+                    |x,y when y>x -> newStates.[k].AddChange(memreg,y)
+                    |_,_ -> ignore()
+
+            newStates
 
         (** Operazioni non essenziali per il momento **)
 
