@@ -7,4 +7,6 @@ type ICFG =
 
     abstract Length: unit -> int
 
+    abstract Nodes: unit -> INode list
+
 end

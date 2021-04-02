@@ -2,6 +2,18 @@
 let main cfg =
     availableVars <- availableVarsAnalysis cfg
     WorkList (new ValueSet(Top)) TransferFunctions cfg
+;;
+
+// Simplify Item[] notation when you need to access to an abstract state from the correspond node
+// Dict.[Node(ID,Type(param),[])]  ==  Dict-->ID
+// Not required, but used in some of these tests
+let (-->) (dict : Dictionary<INode,AbstractState>) (n : int) =
+    let rec f (ks : INode list) = 
+        match ks with 
+        |[] -> failwith("INode not found")
+        |x::xs -> if x.ID()=n then dict.[x] else f xs
+    in f ( dict.Keys |> Seq.map id |> Seq.toList)
+;;
 
 (******************************************************)
 (***************** Some test cases ********************)
@@ -31,11 +43,11 @@ let cfg0 =
 ;;
 
 let abs = main cfg0
-abs.[Node(0, GlobalDec(["x";"y"]), [])]
-abs.[Node(1, SimpleAss("x",3),[])]
-abs.[Node(2, SimpleAss("y",10),[])]
-abs.[Node(3, Ass1("x","y",5), [])]
-abs.[Node(4, Return, [])]
+abs.[Node(0, GlobalDec(["x";"y"]), [])] // []
+abs.[Node(1, SimpleAss("x",3),[])]      // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
+abs.[Node(2, SimpleAss("y",10),[])]     // [x -> {3,⊥} ; y -> {⊤,⊥}]
+abs.[Node(3, Ass1("x","y",5), [])]      // [x -> {3,⊥} ; y -> {10,⊥}]
+abs.[Node(4, Return, [])]               // [x -> {15,5}; y -> {10,⊥}]
 *)
 
 (*************************************************************)
@@ -83,15 +95,15 @@ let cfg1 =
 ;;
 
 let asb = main cfg1
-asb.[Node(0, GlobalDec(["x";"y"]), [])]
-asb.[Node(1, SimpleAss("x",3),[])]
-asb.[Node(2, SimpleAss("y",10),[])]
-asb.[Node(3, SimpleAss("y",11), [])]
-asb.[Node(4, SimpleAss("x",101), [])]
-asb.[Node(5, GlobalDec(["z"]), [])]
-asb.[Node(6, Ass1("x","z",1), [])]
-asb.[Node(8, SimpleAss("x",100), [])]
-asb.[Node(7, Return, [])]
+asb.[Node(0, GlobalDec(["x";"y"]), [])] // []
+asb.[Node(1, SimpleAss("x",3),[])]      // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
+asb.[Node(2, SimpleAss("y",10),[])]     // [x -> {3,⊥} ; y -> {⊤,⊥}]
+asb.[Node(3, SimpleAss("y",11), [])]    // [x -> {3,⊥} ; y -> {10,⊥}]
+asb.[Node(4, SimpleAss("x",101), [])]   // [x -> {3,⊥} ; y -> {11,⊥}]
+asb.[Node(8, SimpleAss("x",100), [])]   // [x -> {3,⊥} ; y -> {10,⊥}]
+asb.[Node(5, GlobalDec(["z"]), [])]     // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥}]
+asb.[Node(6, Ass1("x","z",1), [])]      // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
+asb.[Node(7, Return, [])]               // [x -> {⊤,1} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
 *)
 
 (*************************************************************)
@@ -122,8 +134,8 @@ let cfg2 =
                         new Node(4, SimpleAss("y",11), [
                             new Node(5, SimpleAss("x",101), [
                                 new Node(6, GlobalDec(["z"]), [
-                                    new Node(7, Ass1("x","x",1),[
-                                        new Node(9, Return, [])
+                                    new Node(7, Ass1("x","x",2),[
+                                        new Node(11, Return, [])
                                     ])
                                 ])
                             ])
@@ -131,9 +143,9 @@ let cfg2 =
 
                         // else
                         new Node(8, SimpleAss("x",100), [
-                            new Node(6, GlobalDec(["z"]), [
-                                new Node(7, Ass1("x","z",1),[
-                                    new Node(9, Return, [])
+                            new Node(9, GlobalDec(["z"]), [
+                                new Node(10, Ass1("x","z",1),[
+                                    new Node(11, Return, [])
                                 ])
                             ])
                         ]);
@@ -143,17 +155,56 @@ let cfg2 =
            ]);
         ])
     )
-;;
+;; 
 
 let asb = main cfg2
-asb.[Node(0, GlobalDec(["x";"y"]), [])]
-asb.[Node(1, SimpleAss("x",3),[])]
-asb.[Node(2, SimpleAss("y",10),[])]
-asb.[Node(3, GeqConst("x",5), [])]
-asb.[Node(4, SimpleAss("y",11), [])]
-asb.[Node(5, SimpleAss("x",101), [])]
-asb.[Node(6, GlobalDec(["z"]), [])]
-asb.[Node(7, Ass1("x","x",1), [])]
-asb.[Node(8, SimpleAss("x",100), [])]
-asb.[Node(9, Return, [])]
+asb-->0  // []
+asb-->1  // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
+asb-->2  // [x -> {3,⊥} ; y -> {⊤,⊥}]
+asb-->3  // [x -> {3,⊥} ; y -> {10,⊥}]
+asb-->4  // [x -> {3,⊥} ; y -> {10,⊥}]
+asb-->5  // [x -> {3,⊥} ; y -> {11,⊥}]
+asb-->6  // [x -> {101,⊥} ; y -> {11,⊥}]
+asb-->7  // [x -> {101,⊥} ; y -> {11,⊥}]
+asb-->8  // [x -> {3,⊥} ; y -> {10,⊥}]
+asb-->9  // [x -> {100,1} ; y -> {10,⊥}]
+asb-->10 // [x -> {100,1} ; y -> {10,⊥} ; z -> {⊥,⊤}]
+asb-->11 // [x -> {1, ⊤} ; y -> {(-inf,11),⊥} ; z -> {⊥,⊤} ]
+*)
+
+(*************************************************************)
+
+// Prova while
+
+(* var x
+ * x = 0
+ * while (x <= 5)
+ *     x = x + 1
+ * Return;
+ *)
+
+// Defining first-of-while node without succs and then assign them to the node, in order to compile correctly
+// Test case 3: Uncomment from here
+(*
+let guard = Node(2, LeqConst("x",5), [])
+let body = Node(3, Ass1("x","x",1), [guard])
+let afterwhile = Node(4, Return, [])
+guard.ChangeSucc([body;afterwhile])
+
+let cfg3 = 
+    new CFG(
+        new Node(0,GlobalDec(["x"]),[
+            new Node(1, SimpleAss("x",0), [
+                guard
+            ])
+        ])
+    )
+;;
+let asb = main cfg3;; 
+
+asb-->0 // []
+asb-->1 // x -> ⊤
+asb-->2 // x -> [0,inf]
+asb-->3 // x -> [0,inf]
+asb-->4 // x -> [0,inf]
 *)

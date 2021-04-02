@@ -1,15 +1,48 @@
-(* ValueSet is a r-tuple of Values, which can be ⊥, ⊤ or an interval of ints;
- * the constructor takes a (MemoryRegion * Values) list.
- *
- * There are two ctor for the Top and Bottom element
- * ⊤ = [ R, ..., R ] that are the sets that contains every other set 
- *     (top over everything else, in according with the sorting operator)
- * ⊥ = [ {}, ..., {} ] that are the empty sets, contained in every other set
- *)
-
 open System.Collections.Generic
 
-type ValueSet( list : (MemoryRegion * Values) list ) = 
+// An abstract state is a map: aloc -> VS
+// Implementation is more or less a wrapper for Dictionary<aloc,ValueSet> objs, 
+// except that it exposes the map instead of providing setter/getter methods
+type AbstractState() = 
+
+    let map = new Dictionary<aloc,ValueSet>()
+
+    member this.Map = map
+
+    member this.Keys = this.Map.Keys
+
+    member this.Values = this.Map.Values
+
+    member this.Add(a,b) = this.Map.Add(a,b)
+
+    member this.ContainsKey(key) = this.Map.ContainsKey(key)
+
+    override this.Equals(o) = 
+        let states = o:?>AbstractState
+        let alocs1 = this.Keys |> Seq.toList |> List.sort
+        let alocs2 = states.Keys |> Seq.toList |> List.sort
+        if alocs1<>alocs2 then false else
+            let rec f alocs =
+                match alocs with
+                |[] -> true
+                |x::xs -> if this.Map.[x]=states.Map.[x] then f xs else false
+            in f alocs1
+
+    override this.GetHashCode() = this.Map.GetHashCode()
+
+    override this.ToString() =
+        let rec f keys s = 
+            match keys with
+            |[] -> s
+            |x::xs -> f xs (s+x+": {"+this.Map.[x].ToString()+"}\n")
+        in f (this.Keys |> Seq.toList) ""
+
+(* ValueSet is a r-tuple of Values, which can be ⊥, ⊤ or an interval of ints;
+ * the constructor takes a (MemoryRegion * Values) list. 
+ * ⊤ = [ R, ..., R ] that are the sets that contains every other set 
+ *     (top over everything else, in according with the sorting operator)
+ * ⊥ = [ {}, ..., {} ] that are the empty sets, contained in every other set *)
+and ValueSet( list : (MemoryRegion * Values) list ) = 
     
     class
     
@@ -101,6 +134,23 @@ type ValueSet( list : (MemoryRegion * Values) list ) =
         member this.IsBot() = this.MemRegs() |> Seq.forall (fun (x : MemoryRegion) -> this.IsBotOf(x) )
         member this.IsTop() = this.MemRegs() |> Seq.forall (fun (x : MemoryRegion) -> this.IsTopOf(x) )
     
+        override this.Equals(o) = 
+            let vs = (o:?>ValueSet)
+            let rec f memregs = 
+                match memregs with
+                |[] -> true
+                |x::xs -> if this.Map.[x]=vs.Map.[x] then f xs else false
+            in f (this.MemRegs())
+
+        override this.GetHashCode() = this.Map.GetHashCode()
+
+        override this.ToString() =
+            let rec f memregs s = 
+                match memregs with
+                |[] -> s
+                |x::xs -> f xs (s+"["+x.ToString()+"] -> ("+this.Map.[x].ToString()+") | ")
+            in f (this.MemRegs()) ""
+
     end
 
     (**************************************************************************)
@@ -141,11 +191,11 @@ type ValueSet( list : (MemoryRegion * Values) list ) =
 
                             // Compare the values of the same memory-region for the same a-loc
                             // states1.[al].Map.[mr] with states2.[al].Map.[mr] 
-                            match (states1.[al].Map.[mr], states2.[al].Map.[mr]) with
+                            match (states1.Map.[al].Map.[mr], states2.Map.[al].Map.[mr]) with
                             |(Interval(l1,r1), Interval(l2,r2)) -> if l1>=l2 && r1<=r2 then g mrs else false
                             |values1, values2 -> if values1<=values2 then g mrs else false 
 
-                    in g (states1.[al].MemRegs())
+                    in g (states1.Map.[al].MemRegs())
             in 
             try f a_locs
             with | :? System.Collections.Generic.KeyNotFoundException -> false
@@ -156,7 +206,12 @@ type ValueSet( list : (MemoryRegion * Values) list ) =
         // [a, b] U [c, d] = [min(a,c), max(b,d)]
         member this.Join states1 states2 = 
 
-            let newState = new AbstractState(states1)
+            let newState = new AbstractState()
+            let ks = states1.Keys |> Seq.toList
+
+            // clone abstract state 
+            for k in ks do
+                newState.Add(k,states1.Map.[k].Clone())
 
             // union between two VS (sub-join)
             let JOIN (vs1 : ValueSet) (vs2 : ValueSet) : ValueSet = 
@@ -191,8 +246,8 @@ type ValueSet( list : (MemoryRegion * Values) list ) =
                     
                     // if current key not exists in states1 -> enter it
                     // otherwise, states1.[key] = (states1.[key] JOIN states2.[key])
-                    if states1.ContainsKey x then newState.[x] <- JOIN states1.[x] states2.[x]
-                    else newState.Add(x,states2.[x])
+                    if states1.ContainsKey x then newState.Map.[x] <- JOIN (states1.Map.[x].Clone()) (states2.Map.[x].Clone())
+                    else newState.Add(x,states2.Map.[x].Clone())
                     f xs
 
             in f alocs
@@ -238,7 +293,7 @@ type ValueSet( list : (MemoryRegion * Values) list ) =
             let rec f a_locs = 
                 match a_locs with
                 |[] -> newAbs
-                |x::xs -> newAbs.Add(x, MEET states1.[x] states2.[x]) ; f xs
+                |x::xs -> newAbs.Add(x, MEET (states1.Map.[x]) (states2.Map.[x])) ; f xs
             in f alocs
 
         // Returns the abstract state obtained by widening states1.[aloc] 
@@ -250,21 +305,35 @@ type ValueSet( list : (MemoryRegion * Values) list ) =
 
             // clone abstract state 
             for k in ks do
-                newStates.Add(k,states1.[k].Clone())
-
-                for memreg in (states1.[k].MemRegs()) do
-                    match states1.[k].Map.[memreg],states2.[k].Map.[memreg] with
+                newStates.Add(k,states1.Map.[k].Clone())
+                
+            let WIDEN (vs1 : ValueSet) (vs2 : ValueSet) k =
+                for memreg in (vs1.MemRegs()) do
+                    match vs1.Map.[memreg],vs2.Map.[memreg] with
                     |Interval(l1,r1),Interval(l2,r2) -> 
                         match (l2<l1),(r2>r1) with
-                        |true, true -> newStates.[k].AddChange(memreg,Top)
-                        |true,_ -> newStates.[k].AddChange(memreg,Interval(NegativeInf,r1))
-                        |_,true -> newStates.[k].AddChange(memreg,Interval(l1,PositiveInf))
+                        |true, true -> newStates.Map.[k].AddChange(memreg,Top)
+                        |true,_ -> newStates.Map.[k].AddChange(memreg,Interval(NegativeInf,r1))
+                        |_,true -> newStates.Map.[k].AddChange(memreg,Interval(l1,PositiveInf))
                         |_,_ -> ignore()
                     // Bottom,_ / _,Top
-                    |x,y when y>x -> newStates.[k].AddChange(memreg,y)
+                    |x,y when y>x -> newStates.Map.[k].AddChange(memreg,y)
                     |_,_ -> ignore()
+                
+            // scan states2's aloc
+            let alocs = Seq.toList states2.Keys
+            let rec f a_loc =
+                match a_loc with
+                |[] -> newStates
+                |x::xs -> 
+                    
+                    // if current key not exists in states1 -> enter it
+                    // otherwise, states1.[key] = (states1.[key] JOIN states2.[key])
+                    if states1.ContainsKey x then WIDEN (states1.Map.[x].Clone()) (states2.Map.[x].Clone()) x
+                    else newStates.Add(x,states2.Map.[x].Clone()) 
+                    f xs
 
-            newStates
+            in f alocs
 
         (** Operazioni non essenziali per il momento **)
 
@@ -292,10 +361,9 @@ type ValueSet( list : (MemoryRegion * Values) list ) =
 
         // clone abstract state 
         for k in ks do
-            newStates.Add(k,states.[k].Clone())
+            newStates.Add(k,states.Map.[k].Clone())
 
         // subst newStates[aloc+c/aloc]
-        newStates.[aloc].AdjustByConst(cnst)
+        newStates.Map.[aloc].AdjustByConst(cnst)
         newStates
-
-and AbstractState = Dictionary<aloc,ValueSet>;;
+;;

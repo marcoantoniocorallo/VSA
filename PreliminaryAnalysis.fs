@@ -5,24 +5,17 @@ let availableMRs = [new MemoryRegion(RegionType.AR,0);new MemoryRegion(RegionTyp
 
 // list of every defined var
 let availableVarsAnalysis (cfg : ICFG) : (aloc list) =
-    let entryNode = cfg.EntryBlock()
-    let list = entryNode.Succ()
 
     // if statm = {HeapDec/GlobalDec} -> add new defined vars to ls
     let h statm ls = match statm with |GlobalDec(l) |HeapDec(l) -> ls@l |_ -> ls
 
-    let rec f succ res = 
-        match succ with
-        |[] -> res
-        |x::xs -> 
-                let rec g (deepSucc : INode list) k = 
-                    match deepSucc with
-                    |[] -> f xs k 
-                    |y::ys -> g ys (h (y.Statm()) (k@(f (y.Succ()) [])) )
+    let rec f nodes l =
+        match (nodes : INode list) with
+        |[] -> l
+        |x::xs -> match (x.Statm()) with |GlobalDec(v) |HeapDec(v) -> f xs l@v |_ -> f xs l
 
-                in g (x.Succ()) (h (x.Statm()) res)
+    in (f (cfg.Nodes()) []) |> List.distinct 
+;;
 
-    in f list (h (entryNode.Statm()) [])
-    |> List.distinct ;;
-let mutable availableVars : aloc list = []
+let mutable availableVars : aloc list = [] ;;
 (* Other todo analysis: #Malloc for counting #HeapRegs; #Procs for counting #ARRegs *)

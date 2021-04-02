@@ -2,6 +2,8 @@
 
 type Node(id : int, exp : Exp, succ : Node list ) = 
 
+    let mutable Succ = succ
+
     // method called by a Node instance
     member this.ID() = id
 
@@ -12,7 +14,7 @@ type Node(id : int, exp : Exp, succ : Node list ) =
 
         member this.Statm() = exp
 
-        member this.Succ() = succ |> List.map (fun x -> x :> INode)
+        member this.Succ() = Succ |> List.map (fun x -> x :> INode)
 
         // forward-analysis -> dep = succ
         member this.Dep() = (this :> INode).Succ()
@@ -46,5 +48,9 @@ type Node(id : int, exp : Exp, succ : Node list ) =
         if node.ID()=this.ID() then true else false
 
     override this.GetHashCode() = this.ID()
+
+    override this.ToString() = (string (this.ID())+", "+string ((this:>INode).Statm()))
+
+    member this.ChangeSucc(nodes : Node list) = Succ <- nodes
 
 ;;

@@ -57,23 +57,25 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             let abs = new AbstractState()
             let ks = oldAbs.Keys |> Seq.toList
             for k in ks do
-                abs.Add(k,oldAbs.[k].Clone())
+                abs.Add(k,oldAbs.Map.[k].Clone())
 
             // subst in clone.Global the value n
-            abs.[aloc].AddChange(GLOBAL,Interval(Int(n),Int(n)))
+            abs.Map.[aloc].AddChange(GLOBAL,Interval(Int(n),Int(n)))
             abs 
         
         in (fun x -> f x )
 
-    |Ass1(aloc1,aloc2,cnst) -> 
+    |Ass1(aloc1,aloc2,cnst) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs2 AdjustByConst c])
         
         let f (oldAbs : AbstractState) =
             let newAbs = VS.AdjustByC oldAbs aloc2 cnst
-            newAbs.[aloc1] <- newAbs.[aloc2].Clone()
-            newAbs.[aloc2] <- oldAbs.[aloc2].Clone()
+            newAbs.Map.[aloc1] <- newAbs.Map.[aloc2].Clone()
+            newAbs.Map.[aloc2] <- oldAbs.Map.[aloc2].Clone()
             newAbs
 
-        in (fun x -> f x)
+        let g (oldAbs : AbstractState) = VS.AdjustByC oldAbs aloc1 cnst
+
+        in if aloc1<>aloc2 then (fun x -> f x) else (fun x -> g x)
 
     |LeqConst(aloc,c) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs MEET [-inf, c]])
         
@@ -81,7 +83,7 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
             // top = ([-inf,c],⊤,...,⊤)
             let top = L.Top()
-            top.[aloc].AddChange(GLOBAL,Interval(NegativeInf,Int(c)))
+            top.Map.[aloc].AddChange(GLOBAL,Interval(NegativeInf,Int(c)))
             L.Meet oldAbs top
 
         in (fun x -> f x)
@@ -92,7 +94,7 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
             // top = ([c,inf],⊤,...,⊤)
             let top = L.Top()
-            top.[aloc].AddChange(GLOBAL,Interval(Int(c),PositiveInf))
+            top.Map.[aloc].AddChange(GLOBAL,Interval(Int(c),PositiveInf))
             L.Meet oldAbs top
             
         in (fun x -> f x)
@@ -105,11 +107,11 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             let abs = new AbstractState()
             let ks = oldAbs.Keys |> Seq.toList
             for k in ks do
-                abs.Add(k,oldAbs.[k].Clone())
+                abs.Add(k,oldAbs.Map.[k].Clone())
             
             // abs.[R1] = abs.[R2].RmUpperBounds ; 
-            abs.[R1] <- abs.[R2].Clone()
-            abs.[R1].RmUpperBounds()
+            abs.Map.[R1] <- abs.Map.[R2].Clone()
+            abs.Map.[R1].RmUpperBounds()
             L.Meet oldAbs abs
 
         in (fun (x : AbstractState) -> f x)
