@@ -10,7 +10,7 @@
  * Added by me
  * Global dec : R1, R2,..., Rn
  * SimpleAss : R1 = val		about an aloc global declared
- * Heap dec : R1, R2, ..., Rn
+ * Heap dec : R1 = malloc(s1), R2 = malloc(s2), ..., Rn = = malloc(sn)
  * SimpleHAss : R1 = val	about an aloc dynamically declared
  *)
 
@@ -26,7 +26,7 @@ type Exp =
     |GlobalDec of aloc list
     |SimpleAss of aloc * int
 
-    |HeapDec of aloc list
+    |HeapDec of (aloc * int) list
     |SimpleHAss of aloc * int
 
     |Return 

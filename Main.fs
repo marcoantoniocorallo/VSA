@@ -1,5 +1,6 @@
 (* Executes preliminary analysis and VSA on the input cfg *)
 let main cfg =
+    SizeOf <- SizeOfAnalysis cfg
     availableVars <- availableVarsAnalysis cfg
     WorkList (new ValueSet(Top)) TransferFunctions cfg
 ;;
@@ -19,11 +20,11 @@ let (-->) (dict : Dictionary<INode,AbstractState>) (n : int) =
 (***************** Some test cases ********************)
 (******************************************************)
 
-(*    var x,y   // []
- *    x = 3     // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
- *    y = 10    // [x -> {3,⊥} ; y -> {⊤,⊥}]
- *    x = y+5   // [x -> {3,⊥} ; y -> {10,⊥}]
- *    Return;   // [x -> {15,5}; y -> {10,⊥}]
+(*    var x,y  
+ *    x = 3    
+ *    y = 10   
+ *    x = y+5  
+ *    Return;  
  *)
 
 // Test case 0: Uncomment to run
@@ -52,17 +53,17 @@ abs.[Node(4, Return, [])]               // [x -> {15,5}; y -> {10,⊥}]
 
 (*************************************************************)
 
-(*    var x,y       // []
- *    x = 3         // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
- *    y = 10        // [x -> {3,⊥} ; y -> {⊤,⊥}]
- *    if () then    // TODO
- *        y = 11    // [x -> {3,⊥} ; y -> {10,⊥}]
- *        x = 101   // [x -> {3,⊥} ; y -> {11,⊥}]
- *    else          // TODO
- *        x = 100   // [x -> {3,⊥} ; y -> {10,⊥}]
- *    var z         // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥}]
- *    x = z+1       // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
- *    Return;       // [x -> {⊤,1} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
+(*    var x,y       
+ *    x = 3         
+ *    y = 10        
+ *    if () then    
+ *        y = 11    
+ *        x = 101   
+ *    else          
+ *        x = 100   
+ *    var z         
+ *    x = z+1       
+ *    Return;   
  *)
 
 // Test case 1: Uncomment from here
@@ -101,24 +102,24 @@ asb.[Node(2, SimpleAss("y",10),[])]     // [x -> {3,⊥} ; y -> {⊤,⊥}]
 asb.[Node(3, SimpleAss("y",11), [])]    // [x -> {3,⊥} ; y -> {10,⊥}]
 asb.[Node(4, SimpleAss("x",101), [])]   // [x -> {3,⊥} ; y -> {11,⊥}]
 asb.[Node(8, SimpleAss("x",100), [])]   // [x -> {3,⊥} ; y -> {10,⊥}]
-asb.[Node(5, GlobalDec(["z"]), [])]     // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥}]
-asb.[Node(6, Ass1("x","z",1), [])]      // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
-asb.[Node(7, Return, [])]               // [x -> {⊤,1} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
+asb.[Node(5, GlobalDec(["z"]), [])]     // [x -> { {-inf; 101 } ,⊥} ; y -> { { -inf; 11 } ,⊥}]
+asb.[Node(6, Ass1("x","z",1), [])]      // [x -> { {-inf; 101 } ,⊥} ; y -> { { -inf; 11 } ,⊥} ; z -> {⊤,⊥}]
+asb.[Node(7, Return, [])]               // [x -> {⊤,1} ; y -> { { -inf ; 11 } ,⊥} ; z -> {⊤,⊥}]
 *)
 
 (*************************************************************)
 
-(*    var x,y        // []
- *    x = 3          // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
- *    y = 10         // [x -> {3,⊥} ; y -> {⊤,⊥}]
- *    if (x<=5) then // [x -> {3,⊥} ; y -> {10,⊥}]
- *        y = 11     // [x -> {3,⊥} ; y -> {10,⊥}]
- *        x = 101    // [x -> {3,⊥} ; y -> {11,⊥}]
- *    else           // TODO
- *        x = 100    // [x -> {3,⊥} ; y -> {10,⊥}]
- *    var z          // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥}]
- *    x = z+1        // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
- *    Return;        // [x -> {⊤,1} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
+(*    var x,y       
+ *    x = 3         
+ *    y = 10        
+ *    if (x<=5) then
+ *        y = 11    
+ *        x = 101   
+ *    else          
+ *        x = 100   
+ *    var z         
+ *    x = z+1       
+ *    Return;       
  *)
 
 // Test case 2: Uncomment from here
@@ -165,11 +166,11 @@ asb-->3  // [x -> {3,⊥} ; y -> {10,⊥}]
 asb-->4  // [x -> {3,⊥} ; y -> {10,⊥}]
 asb-->5  // [x -> {3,⊥} ; y -> {11,⊥}]
 asb-->6  // [x -> {101,⊥} ; y -> {11,⊥}]
-asb-->7  // [x -> {101,⊥} ; y -> {11,⊥}]
+asb-->7  // [x -> {101,⊥} ; y -> {11,⊥} ; z -> {⊥,⊤}]
 asb-->8  // [x -> {3,⊥} ; y -> {10,⊥}]
-asb-->9  // [x -> {100,1} ; y -> {10,⊥}]
-asb-->10 // [x -> {100,1} ; y -> {10,⊥} ; z -> {⊥,⊤}]
-asb-->11 // [x -> {1, ⊤} ; y -> {(-inf,11),⊥} ; z -> {⊥,⊤} ]
+asb-->9  // [x -> {100,⊥} ; y -> {10,⊥}]
+asb-->10 // [x -> {100,⊥} ; y -> {10,⊥} ; z -> {⊥,⊤}]
+asb-->11 // [x -> {[-inf,2]; ⊤} ; y -> {(-inf,11),⊥} ; z -> {⊥,⊤} ]
 *)
 
 (*************************************************************)
@@ -186,6 +187,7 @@ asb-->11 // [x -> {1, ⊤} ; y -> {(-inf,11),⊥} ; z -> {⊥,⊤} ]
 // Defining first-of-while node without succs and then assign them to the node, in order to compile correctly
 // Test case 3: Uncomment from here
 (*
+
 let guard = Node(2, LeqConst("x",5), [])
 let body = Node(3, Ass1("x","x",1), [guard])
 let afterwhile = Node(4, Return, [])
@@ -203,8 +205,8 @@ let cfg3 =
 let asb = main cfg3;; 
 
 asb-->0 // []
-asb-->1 // x -> ⊤
-asb-->2 // x -> [0,inf]
-asb-->3 // x -> [0,inf]
-asb-->4 // x -> [0,inf]
+asb-->1 // x -> {⊤,⊥}
+asb-->2 // x -> {[0,inf],⊥}
+asb-->3 // x -> {[0,inf],⊥}
+asb-->4 // x -> {[0,inf],⊥}
 *)
