@@ -1,4 +1,4 @@
-open System.Collections.Generic
+open System.Collections.Generic;;
 
 // Some mutable global vars are defined into preliminary analysis, in that they're used in some routines;
 // because of the static binding they cannot be redefined, so they're mutable.
