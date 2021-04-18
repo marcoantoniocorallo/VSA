@@ -34,7 +34,7 @@ type AbstractState() =
         let rec f keys s = 
             match keys with
             |[] -> s
-            |x::xs -> f xs (s+x+": {"+this.Map.[x].ToString()+"}\n")
+            |x::xs -> f xs (s+x+": { | "+this.Map.[x].ToString()+"}\n")
         in f (this.Keys |> Seq.toList) ""
 
 (* ValueSet is a r-tuple of Values, which can be ⊥, ⊤ or an interval of ints;
@@ -50,7 +50,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         let map = new Dictionary<MemoryRegion, Values>()
 
         // Fills the map scanning the list
-        let listToMap l = l |> List.map (fun (x : (MemoryRegion * Values) ) -> map.Add(fst x, snd x)) |> ignore
+        let listToMap l = l |> List.map (fun (x : MemoryRegion * Values ) -> map.Add(fst x, snd x)) |> ignore
 
         // Adds no-declared MRs, initializing them with the value ⊥
         let addMR l = 
@@ -134,6 +134,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         member this.IsBot() = this.MemRegs() |> Seq.forall (fun (x : MemoryRegion) -> this.IsBotOf(x) )
         member this.IsTop() = this.MemRegs() |> Seq.forall (fun (x : MemoryRegion) -> this.IsTopOf(x) )
     
+        // override Equals, ToString, GetHashCode
         override this.Equals(o) = 
             let vs = (o:?>ValueSet)
             let rec f memregs = 
@@ -192,7 +193,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
                             // Compare the values of the same memory-region for the same a-loc
                             // states1.[al].Map.[mr] with states2.[al].Map.[mr] 
                             match (states1.Map.[al].Map.[mr], states2.Map.[al].Map.[mr]) with
-                            |(Interval(l1,r1), Interval(l2,r2)) -> if l1>=l2 && r1<=r2 then g mrs else false
+                            |Interval(l1,r1), Interval(l2,r2) -> if l1>=l2 && r1<=r2 then g mrs else false
                             |values1, values2 -> if values1<=values2 then g mrs else false 
 
                     in g (states1.Map.[al].MemRegs())
@@ -223,13 +224,13 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
                     |x::xs -> 
                         match (vs1.IsBotOf(x), vs1.IsTopOf(x), vs2.IsBotOf(x), vs2.IsTopOf(x)) with
                         // { ⊤ U _ | _ U ⊥ } -> vs1.[x] 
-                        |(_,true,_,_)
-                        |(_,_,true,_) -> g xs                              
+                        |_,true,_,_
+                        |_,_,true,_ -> g xs                              
                         // { ⊥ U _ | _ U ⊤ } -> vs2.[x]
-                        |(true,_,_,_)
-                        |(_,_,_,true) -> newVS.AddChange(x, vs2.Map.[x]) ; g xs
+                        |true,_,_,_
+                        |_,_,_,true -> newVS.AddChange(x, vs2.Map.[x]) ; g xs
 
-                        |(_,_,_,_) -> 
+                        |_,_,_,_ -> 
                             match vs1.Map.[x], vs2.Map.[x] with 
                             |Interval(a,b),Interval(c,d) -> newVS.AddChange(x,Interval(min a c,max b d))
                             |_,_ -> failwith("Unexpected case")
@@ -270,13 +271,13 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
                     |x::xs -> 
                         match (vs1.IsBotOf(x), vs1.IsTopOf(x), vs2.IsBotOf(x), vs2.IsTopOf(x)) with
                         // { ⊥ MEET _ | _ MEET ⊥ } -> ⊥
-                        |(true,_,_,_)
-                        |(_,_,true,_) -> g xs
+                        |true,_,_,_
+                        |_,_,true,_ -> g xs
                         // { ⊤ MEET x | x MEET ⊤ } -> x 
-                        |(_,true,_,_) -> newVS.AddChange(x, vs2.Map.[x]) ; g xs
-                        |(_,_,_,true) -> newVS.AddChange(x, vs1.Map.[x]) ; g xs
+                        |_,true,_,_ -> newVS.AddChange(x, vs2.Map.[x]) ; g xs
+                        |_,_,_,true -> newVS.AddChange(x, vs1.Map.[x]) ; g xs
 
-                        |(_,_,_,_) ->
+                        |_,_,_,_ ->
                             match vs1.Map.[x], vs2.Map.[x] with 
                             |Interval(a,b),Interval(c,d) -> 
                                 let l = max a c
@@ -288,12 +289,12 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
                 in g (vs1.MemRegs())
 
             // Intersection of alocs
-            let alocs = ((Set.ofSeq (states1.Keys)) |> Set.intersect (Set.ofSeq (states2.Keys))) |> Set.toList
+            let alocs = ((Set.ofSeq states1.Keys) |> Set.intersect (Set.ofSeq states2.Keys)) |> Set.toList
 
             let rec f a_locs = 
                 match a_locs with
                 |[] -> newAbs
-                |x::xs -> newAbs.Add(x, MEET (states1.Map.[x]) (states2.Map.[x])) ; f xs
+                |x::xs -> newAbs.Add(x, MEET states1.Map.[x] states2.Map.[x]) ; f xs
             in f alocs
 
         // Returns the abstract state obtained by widening states1.[aloc] 
