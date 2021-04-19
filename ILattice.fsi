@@ -15,14 +15,4 @@ type ILattice<'T> =
 
     abstract Widen : 'T -> 'T -> 'T
 
-    abstract Narrow : 'T -> 'T -> 'T
-
-    abstract FiniteHeight : unit -> bool 
-
-    abstract IsBotEmpty : unit -> bool
-
-    abstract IsBot : 'T -> bool
-
-    abstract IsTop : 'T -> bool
-
 end

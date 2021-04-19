@@ -1,11 +1,19 @@
 open System.Collections.Generic
 
+let WideningThreshold = 20;;
+
 // An abstract state is a map: aloc -> VS
 // Implementation is more or less a wrapper for Dictionary<aloc,ValueSet> objs, 
 // except that it exposes the map instead of providing setter/getter methods
 type AbstractState() = 
 
     let map = new Dictionary<aloc,ValueSet>()
+
+    // n. of widening applications
+    let mutable NWidened = 0
+    member this.GetNWidened() = NWidened
+    member this.IncNWidened() = NWidened <- NWidened+1
+    member this.SetNWidened(n) = NWidened <- n
 
     member this.Map = map
 
@@ -99,7 +107,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
             let key = this.MemRegs() |> Seq.find (fun (x : MemoryRegion) -> if x=memReg then true else false)
             in  this.Map.[key] <- checkInterval values
 
-        // Adjust each interval in this VS by a constant
+        // Adjust/Times each interval in this VS by a constant
         member this.AdjustByConst(cnst : int) =  
             for mr in this.Map.Keys do
 
@@ -108,8 +116,22 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
                 |Interval(NegativeInf, Int(r)) -> this.AddChange(mr,Interval(NegativeInf,Int(r+cnst)))
                 |Interval(Int(l), PositiveInf) -> this.AddChange(mr,Interval(Int(l+cnst),PositiveInf))
 
-                // ⊤ + c = ⊤ ; ⊥ + c = c
-                |Bottom -> this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
+                // ⊤ + c = ⊤ ; ⊥ + c = ⊥
+                |Bottom //this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
+                |Top -> ignore()
+
+                |_ -> failwith("Wrong interval")
+
+        member this.TimesByConst(cnst : int) =  
+            for mr in this.Map.Keys do
+
+                match this.Map.[mr] with
+                |Interval(Int(l),Int(r)) -> this.AddChange(mr,Interval(Int(l*cnst),Int(r*cnst)))
+                |Interval(NegativeInf, Int(r)) -> this.AddChange(mr,Interval(NegativeInf,Int(r*cnst)))
+                |Interval(Int(l), PositiveInf) -> this.AddChange(mr,Interval(Int(l*cnst),PositiveInf))
+
+                // ⊤ * c = ⊤ ; ⊥ * c = ⊥
+                |Bottom //this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
                 |Top -> ignore()
 
                 |_ -> failwith("Wrong interval")
@@ -208,6 +230,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         member this.Join states1 states2 = 
 
             let newState = new AbstractState()
+            newState.SetNWidened(states1.GetNWidened())
             let ks = states1.Keys |> Seq.toList
 
             // clone abstract state 
@@ -260,7 +283,8 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         member this.Meet states1 states2 = 
 
             let newAbs = new AbstractState()
-            
+            newAbs.SetNWidened(states1.GetNWidened())
+
             // meet between two VS (sub-meet)
             let MEET (vs1 : ValueSet) (vs2 : ValueSet) : ValueSet = 
                 let newVS = new ValueSet(Bottom)
@@ -301,63 +325,54 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         // with respect to states2.[aloc] for each aloc
         member this.Widen states1 states2 = 
 
-            let newStates = new AbstractState()
-            let ks = states1.Keys |> Seq.toList
-
-            // clone abstract state 
-            for k in ks do
-                newStates.Add(k,states1.Map.[k].Clone())
-                
-            let WIDEN (vs1 : ValueSet) (vs2 : ValueSet) k =
-                for memreg in (vs1.MemRegs()) do
-                    match vs1.Map.[memreg],vs2.Map.[memreg] with
-                    |Interval(l1,r1),Interval(l2,r2) -> 
-                        match (l2<l1),(r2>r1) with
-                        |true, true -> newStates.Map.[k].AddChange(memreg,Top)
-                        |true,_ -> newStates.Map.[k].AddChange(memreg,Interval(NegativeInf,r1))
-                        |_,true -> newStates.Map.[k].AddChange(memreg,Interval(l1,PositiveInf))
-                        |_,_ -> ignore()
-                    // Bottom,_ / _,Top
-                    |x,y when y>x -> newStates.Map.[k].AddChange(memreg,y)
-                    |_,_ -> ignore()
-                
-            // scan states2's aloc
-            let alocs = Seq.toList states2.Keys
-            let rec f a_loc =
-                match a_loc with
-                |[] -> newStates
-                |x::xs -> 
+            // for a threshold K of iterations, Widening = Join
+            states1.IncNWidened()
+            if states1.GetNWidened() <= WideningThreshold 
+            then (this:>ILattice<AbstractState>).Join states1 states2
+            else
+    
+                let newStates = new AbstractState()
+                newStates.SetNWidened(states1.GetNWidened())
+                let ks = states1.Keys |> Seq.toList
+    
+                // clone abstract state 
+                for k in ks do
+                    newStates.Add(k,states1.Map.[k].Clone())
                     
-                    // if current key not exists in states1 -> enter it
-                    // otherwise, states1.[key] = (states1.[key] JOIN states2.[key])
-                    if states1.ContainsKey x then WIDEN (states1.Map.[x].Clone()) (states2.Map.[x].Clone()) x
-                    else newStates.Add(x,states2.Map.[x].Clone()) 
-                    f xs
-
-            in f alocs
-
-        (** Operazioni non essenziali per il momento **)
-
-        // TODO:
-        member this.Narrow vs1 vs2 = vs1
-
-        // TODO:
-        member this.FiniteHeight() = true
-
-        // TODO:
-        member this.IsBotEmpty() = true
-
-        // TODO:
-        member this.IsBot vs = true
-
-        // TODO:
-        member this.IsTop vs = true
+                let WIDEN (vs1 : ValueSet) (vs2 : ValueSet) k =
+                    for memreg in (vs1.MemRegs()) do
+                        match vs1.Map.[memreg],vs2.Map.[memreg] with
+                        |Interval(l1,r1),Interval(l2,r2) -> 
+                            match (l2<l1),(r2>r1) with
+                            |true, true -> newStates.Map.[k].AddChange(memreg,Top)
+                            |true,_ -> newStates.Map.[k].AddChange(memreg,Interval(NegativeInf,r1))
+                            |_,true -> newStates.Map.[k].AddChange(memreg,Interval(l1,PositiveInf))
+                            |_,_ -> ignore()
+                        // Bottom,_ / _,Top
+                        |x,y when y>x -> newStates.Map.[k].AddChange(memreg,y)
+                        |_,_ -> ignore()
+                    
+                // scan states2's aloc
+                let alocs = Seq.toList states2.Keys
+                let rec f a_loc =
+                    match a_loc with
+                    |[] -> newStates
+                    |x::xs -> 
+                        
+                        // if current key not exists in states1 -> enter it
+                        // otherwise, states1.[key] = (states1.[key] JOIN states2.[key])
+                        if states1.ContainsKey x then WIDEN (states1.Map.[x].Clone()) (states2.Map.[x].Clone()) x
+                        else newStates.Add(x,states2.Map.[x].Clone()) 
+                        f xs
+    
+                in f alocs
 
     end
 
     // states -> states[VSk+c/VSk] where VSk is k's VS = [a,b], and VSk+c = [a+c,b+c]  
     member this.AdjustByC (states : AbstractState) (aloc : aloc) cnst = 
         let newStates = new AbstractState()
+        newStates.SetNWidened(states.GetNWidened())
         let ks = states.Keys |> Seq.toList
 
         // clone abstract state 
@@ -366,5 +381,19 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
 
         // subst newStates[aloc+c/aloc]
         newStates.Map.[aloc].AdjustByConst(cnst)
+        newStates
+
+    // states -> states[VSk*c/VSk] where VSk is k's VS = [a,b], and VSk*c = [a*c,b*c]  
+    member this.TimesByC (states : AbstractState) (aloc : aloc) cnst = 
+        let newStates = new AbstractState()
+        newStates.SetNWidened(states.GetNWidened())
+        let ks = states.Keys |> Seq.toList
+
+        // clone abstract state 
+        for k in ks do
+            newStates.Add(k,states.Map.[k].Clone())
+
+        // subst newStates[aloc*c/aloc]
+        newStates.Map.[aloc].TimesByConst(cnst)
         newStates
 ;;

@@ -12,7 +12,7 @@ let (-->) (dict : Dictionary<INode,AbstractState>) (n : int) =
     let rec f (ks : INode list) = 
         match ks with 
         |[] -> failwith("INode not found")
-        |x::xs -> if x.ID()=n then dict.[x] else f xs
+        |x::xs -> if x.ID()=n then dict.[x].ToString() else f xs
     in f ( dict.Keys |> Seq.map id |> Seq.toList)
 ;;
 
@@ -34,7 +34,7 @@ let cfg0 =
         new Node(0, GlobalDec(["x";"y"]), [
             new Node(1, SimpleAss("x",3), [
                 new Node(2, SimpleAss("y",10), [ 
-                    new Node(3, Ass1("x","y",5), [
+                    new Node(3, SumConst("x","y",5), [
                         new Node(4, Return, [])
                     ])
                 ])
@@ -44,11 +44,11 @@ let cfg0 =
 ;;
 
 let abs = main cfg0
-abs.[Node(0, GlobalDec(["x";"y"]), [])] // []
-abs.[Node(1, SimpleAss("x",3),[])]      // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
-abs.[Node(2, SimpleAss("y",10),[])]     // [x -> {3,⊥} ; y -> {⊤,⊥}]
-abs.[Node(3, Ass1("x","y",5), [])]      // [x -> {3,⊥} ; y -> {10,⊥}]
-abs.[Node(4, Return, [])]               // [x -> {15,5}; y -> {10,⊥}]
+abs-->0 // []
+abs-->1 // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
+abs-->2 // [x -> {3,⊥} ; y -> {⊤,⊥}]
+abs-->3 // [x -> {3,⊥} ; y -> {10,⊥}]
+abs-->4 // [x -> {15,⊥}; y -> {10,⊥}]
 *)
 
 (*************************************************************)
@@ -76,7 +76,7 @@ let cfg1 =
                     new Node(3, SimpleAss("y",11), [
                         new Node(4, SimpleAss("x",101), [
                             new Node(5, GlobalDec(["z"]), [
-                                new Node(6, Ass1("x","z",1),[
+                                new Node(6, SumConst("x","z",1),[
                                     new Node(7, Return, [])
                                 ])
                             ])
@@ -84,7 +84,7 @@ let cfg1 =
                     ])
                     new Node(8, SimpleAss("x",100), [
                         new Node(5, GlobalDec(["z"]), [
-                            new Node(6, Ass1("x","z",1),[
+                            new Node(6, SumConst("x","z",1),[
                                 new Node(7, Return, [])
                             ])
                         ])
@@ -96,15 +96,15 @@ let cfg1 =
 ;;
 
 let asb = main cfg1
-asb.[Node(0, GlobalDec(["x";"y"]), [])] // []
-asb.[Node(1, SimpleAss("x",3),[])]      // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
-asb.[Node(2, SimpleAss("y",10),[])]     // [x -> {3,⊥} ; y -> {⊤,⊥}]
-asb.[Node(3, SimpleAss("y",11), [])]    // [x -> {3,⊥} ; y -> {10,⊥}]
-asb.[Node(4, SimpleAss("x",101), [])]   // [x -> {3,⊥} ; y -> {11,⊥}]
-asb.[Node(8, SimpleAss("x",100), [])]   // [x -> {3,⊥} ; y -> {10,⊥}]
-asb.[Node(5, GlobalDec(["z"]), [])]     // [x -> { {-inf; 101 } ,⊥} ; y -> { { -inf; 11 } ,⊥}]
-asb.[Node(6, Ass1("x","z",1), [])]      // [x -> { {-inf; 101 } ,⊥} ; y -> { { -inf; 11 } ,⊥} ; z -> {⊤,⊥}]
-asb.[Node(7, Return, [])]               // [x -> {⊤,1} ; y -> { { -inf ; 11 } ,⊥} ; z -> {⊤,⊥}]
+asb-->0 // []
+asb-->1 // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
+asb-->2 // [x -> {3,⊥} ; y -> {⊤,⊥}]
+asb-->3 // [x -> {3,⊥} ; y -> {10,⊥}]
+asb-->4 // [x -> {3,⊥} ; y -> {11,⊥}]
+asb-->8 // [x -> {3,⊥} ; y -> {10,⊥}]
+asb-->5 // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥}]
+asb-->6 // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
+asb-->7 // [x -> {⊤,⊥} ; y -> { { 10 ; 11 } ,⊥} ; z -> {⊤,⊥}]
 *)
 
 (*************************************************************)
@@ -135,7 +135,7 @@ let cfg2 =
                         new Node(4, SimpleAss("y",11), [
                             new Node(5, SimpleAss("x",101), [
                                 new Node(6, GlobalDec(["z"]), [
-                                    new Node(7, Ass1("x","x",2),[
+                                    new Node(7, SumConst("x","x",2),[
                                         new Node(11, Return, [])
                                     ])
                                 ])
@@ -145,7 +145,7 @@ let cfg2 =
                         // else
                         new Node(8, SimpleAss("x",100), [
                             new Node(9, GlobalDec(["z"]), [
-                                new Node(10, Ass1("x","z",1),[
+                                new Node(10, SumConst("x","z",1),[
                                     new Node(11, Return, [])
                                 ])
                             ])
@@ -170,12 +170,12 @@ asb-->7  // [x -> {101,⊥} ; y -> {11,⊥} ; z -> {⊥,⊤}]
 asb-->8  // [x -> {3,⊥} ; y -> {10,⊥}]
 asb-->9  // [x -> {100,⊥} ; y -> {10,⊥}]
 asb-->10 // [x -> {100,⊥} ; y -> {10,⊥} ; z -> {⊥,⊤}]
-asb-->11 // [x -> {[-inf,2]; ⊤} ; y -> {(-inf,11),⊥} ; z -> {⊥,⊤} ]
+asb-->11 // [x -> {⊥; ⊤} ; y -> {(10,11),⊥} ; z -> {⊥,⊤} ]
 *)
 
 (*************************************************************)
 
-// Prova while
+// While test
 
 (* var x
  * x = 0
@@ -189,7 +189,7 @@ asb-->11 // [x -> {[-inf,2]; ⊤} ; y -> {(-inf,11),⊥} ; z -> {⊥,⊤} ]
 (*
 
 let guard = Node(2, LeqConst("x",5), [])
-let body = Node(3, Ass1("x","x",1), [guard])
+let body = Node(3, SumConst("x","x",1), [guard])
 let afterwhile = Node(4, Return, [])
 guard.ChangeSucc([body;afterwhile])
 
@@ -206,7 +206,54 @@ let asb = main cfg3;;
 
 asb-->0 // []
 asb-->1 // x -> {⊤,⊥}
-asb-->2 // x -> {[0,inf],⊥}
-asb-->3 // x -> {[0,inf],⊥}
-asb-->4 // x -> {[0,inf],⊥}
+asb-->2 // x -> {[0,6],⊥}
+asb-->3 // x -> {[0,5],⊥}
+asb-->4 // x -> {[0,5],⊥}
+*)
+
+(*************************************************************)
+
+// Double-while test
+
+(*
+ * let x,y
+ * x=0
+ * y=0
+ * while x<5
+ *   while y<5
+ *     y++
+ *   x++
+ * Return
+ *)
+
+// Test-case 4: uncomment from here
+(*
+let guard1 = new Node(3,LeqConst("x",5),[]);;
+let guard2 = new Node(4,LeqConst("y",5),[]);;
+let body2 = new Node(5,SumConst("y","y",1),[guard2]);;
+let body1 = new Node(6, SumConst("x","x",1),[guard1]);;
+let afterwhile = new Node(7,Return,[]);;
+guard1.ChangeSucc([guard2;afterwhile]);;
+guard2.ChangeSucc([body2;body1]);;
+let cfg4 = 
+    new CFG(
+        new Node(0,GlobalDec(["x";"y"]), [
+            new Node(1,SimpleAss("x",0), [
+                new Node(2,SimpleAss("y",0), [
+                    guard1
+                ])
+            ])
+        ])
+    )
+;;
+
+let abs = main cfg4;;
+abs-->0 // []
+abs-->1 // [x -> {⊤,⊥}, y -> {⊤,⊥}]
+abs-->2 // [x -> {[0,0],⊥}, y -> {⊤,⊥}]
+abs-->3 // [x -> {[0,6],⊥}, y -> {[0,5],⊥}]
+abs-->4 // [x -> {[0,5],⊥}, y -> {[0,6],⊥}]
+abs-->5 // [x -> {[0,5],⊥}, y -> {[0,5],⊥}]
+abs-->6 // [x -> {[0,5],⊥}, y -> {[0,5],⊥}]
+abs-->7 // [x -> {[0,5],⊥}, y -> {[0,5],⊥}]
 *)

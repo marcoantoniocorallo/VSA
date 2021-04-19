@@ -9,6 +9,8 @@ type INode =
 
     abstract Succ: unit -> INode list
 
+    abstract AllSucc : INode list -> INode list
+
     abstract Dep : unit -> INode list
 
     inherit System.IComparable 
