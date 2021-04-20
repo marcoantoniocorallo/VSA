@@ -15,6 +15,8 @@
  * SimpleHAss : R1 = val	about an aloc dynamically declared
  *
  * TimesConst : R1 = R2 * c
+ * SumAloc : R1 = R2 + R3
+ * TimesAloc : R1 = R2 * R3
  * Return
  *)
 
@@ -34,5 +36,7 @@ type Exp =
     |SimpleHAss of aloc * int
 
     |TimesConst of aloc * aloc * int
+    |SumAloc of aloc * aloc * aloc
+    |TimesAloc of aloc * aloc * aloc
     |Return 
 ;;

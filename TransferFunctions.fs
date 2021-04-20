@@ -14,16 +14,15 @@
  *    let [R2 -> vs] ∈ e.Before
  *    e.After := e.Before \ [R1 -> *] ∪ [R1 -> vs TimesByConst c]
  *
- * Ass2 : *(R1+c1) = R2+c2
- *    let [R1 -> VS2], [R2 -> VS2] ∈ e.Before 
- *        and (F,P) = *((VS1 AdjustByConst c1), s)
- *        and tmp = e.Before \ {[a -> *] | a ∈ P ∪ F} ∪ {[p -> ⊤] | p ∈ P}
- *        and Proc be the procedure containing the statement
- *    if (|F| = 1 and |P| = 0 and (Proc is not recursive) and (F has not heap objects)
- *        // Strong update
- *        then e.After := tmp ∪ {[v -> (VS2 AdjustByConst c2)] | v ∈ F}
- *        // Weak update
- *        else e.After := tmp ∪ {[v -> (VS2 AdjustByConst c2) JOIN VSv ] | v ∈ F, [v -> VSv] ∈ e.Before}
+ * SumAloc : R1 = R2 + R3
+ *    let [R2 -> vs2] ∈ e.Before
+ *    let [R3 -> vs3] ∈ e.Before
+ *    e.After := e.Before \ [R1 -> *] ∪ [R1 -> vs2 + vs3]
+ *
+ * TimesAloc : R1 = R2 * R3
+ *    let [R2 -> vs2] ∈ e.Before
+ *    let [R3 -> vs3] ∈ e.Before
+ *    e.After := e.Before \ [R1 -> *] ∪ [R1 -> vs2 * vs3]
  *
  * LeqConst : R1 ≤ c
  *    let [R1 -> vs1] ∈ e.Before and vsc = ([−inf, c], ⊤, ..., ⊤)
@@ -63,22 +62,15 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
     |SimpleAss(aloc,n) -> // returns fun : x -> x[n/x.[aloc].Global] 
         
         let f (oldAbs : AbstractState) =
-        
-            // must create a clone of the old abstract state
-            let abs = new AbstractState()
-            abs.SetNWidened(oldAbs.GetNWidened())
-            let ks = oldAbs.Keys |> Seq.toList
-            for k in ks do
-                abs.Add(k,oldAbs.Map.[k].Clone())
+            let abs = oldAbs.Clone()
 
             // subst in clone.Global the value n
             abs.Map.[aloc].AddChange(GLOBAL,Interval(Int(n),Int(n)))
             abs 
-        
         in f
 
     |SumConst(aloc1,aloc2,cnst) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs2 AdjustByConst c])
-        
+
         let f (oldAbs : AbstractState) =
             let newAbs = VS.AdjustByC oldAbs aloc2 cnst
             newAbs.Map.[aloc1] <- newAbs.Map.[aloc2].Clone()
@@ -86,7 +78,6 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             newAbs
 
         let g (oldAbs : AbstractState) = VS.AdjustByC oldAbs aloc1 cnst
-
         in if aloc1<>aloc2 then f else g
 
     |TimesConst(aloc1,aloc2,cnst) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs2 TimesByConst c])
@@ -98,6 +89,24 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             newAbs
         let g (oldAbs : AbstractState) = VS.TimesByC oldAbs aloc1 cnst
         in if aloc1<>aloc2 then f else g
+
+    |SumAloc(aloc1,aloc2,aloc3) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs2 + vs3])
+        
+        let f (oldAbs : AbstractState) =
+            let newVS = oldAbs.Map.[aloc2] + oldAbs.Map.[aloc3]
+            let abs = oldAbs.Clone()
+            abs.Map.[aloc1] <- newVS
+            abs
+        in f
+
+    |TimesAloc(aloc1, aloc2, aloc3) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs2 * vs3])
+        
+        let f (oldAbs : AbstractState) =
+            let newVS = oldAbs.Map.[aloc2] * oldAbs.Map.[aloc3]
+            let abs = oldAbs.Clone()
+            abs.Map.[aloc1] <- newVS.Clone()
+            abs
+        in f
 
     |LeqConst(aloc,c) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs MEET [-inf, c]])
         
@@ -111,25 +120,19 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
         in f
         
     |GeqConst(aloc,c) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs MEET [c, inf]])
-        
-        let f (oldAbs : AbstractState) =
 
+        let f (oldAbs : AbstractState) =
             // top = ([c,inf],⊤,...,⊤)
             let top = L.Top()
             top.Map.[aloc].AddChange(GLOBAL,Interval(Int(c),PositiveInf))
-            L.Meet oldAbs top
+            L.Meet oldAbs top 
             
         in f
 
     |LeqVar(R1,R2) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs1 MEET RemoveUpperBound(vs2)])
 
         let f (oldAbs : AbstractState) = 
-           
-             // must create a clone of the old abstract state
-            let abs = new AbstractState()
-            let ks = oldAbs.Keys |> Seq.toList
-            for k in ks do
-                abs.Add(k,oldAbs.Map.[k].Clone())
+            let abs = oldAbs.Clone()
             
             // abs.[R1] = abs.[R2].RmUpperBounds ; 
             abs.Map.[R1] <- abs.Map.[R2].Clone()

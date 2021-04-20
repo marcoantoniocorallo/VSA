@@ -25,6 +25,13 @@ type AbstractState() =
 
     member this.ContainsKey(key) = this.Map.ContainsKey(key)
 
+    member this.Clone() = 
+        let abs = new AbstractState()
+        abs.SetNWidened(this.GetNWidened())
+        for key in this.Keys do
+            abs.Add(key, this.Map.[key].Clone())
+        abs
+
     override this.Equals(o) = 
         let states = o:?>AbstractState
         let alocs1 = this.Keys |> Seq.toList |> List.sort
@@ -71,7 +78,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         let checkInterval (el : Values ) : Values = 
             match el with 
             |Interval(l,r) when l = NegativeInf && r = PositiveInf -> Top
-            |Interval(l,r) when l>r -> failwith("Wrong Interval")
+            |Interval(l,r) when l>r -> Interval(r,l)
             |other -> other
     
         // checks not-empty list, converts any interval [-inf,inf] to ⊤, 
@@ -104,20 +111,20 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         // Adds new element (memoryRegion, Values)
         // the existing memoryRegion's value will be overwritten
         member this.AddChange(memReg, values) = 
-            let key = this.MemRegs() |> Seq.find (fun (x : MemoryRegion) -> if x=memReg then true else false)
-            in  this.Map.[key] <- checkInterval values
+            //let key = this.MemRegs() |> Seq.find (fun (x : MemoryRegion) -> if x=memReg then true else false)
+            this.Map.[memReg] <- checkInterval values
 
         // Adjust/Times each interval in this VS by a constant
         member this.AdjustByConst(cnst : int) =  
             for mr in this.Map.Keys do
 
                 match this.Map.[mr] with
-                |Interval(Int(l),Int(r)) -> this.AddChange(mr,Interval(Int(l+cnst),Int(r+cnst)))
+                |Interval(Int(l),Int(r)) -> this.AddChange(mr,Interval(Int(l+cnst),Int(r+cnst) ) )
                 |Interval(NegativeInf, Int(r)) -> this.AddChange(mr,Interval(NegativeInf,Int(r+cnst)))
                 |Interval(Int(l), PositiveInf) -> this.AddChange(mr,Interval(Int(l+cnst),PositiveInf))
 
-                // ⊤ + c = ⊤ ; ⊥ + c = ⊥
-                |Bottom //this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
+                // ⊤ + c = ⊤ ; ⊥ + c = c
+                |Bottom -> this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
                 |Top -> ignore()
 
                 |_ -> failwith("Wrong interval")
@@ -130,8 +137,8 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
                 |Interval(NegativeInf, Int(r)) -> this.AddChange(mr,Interval(NegativeInf,Int(r*cnst)))
                 |Interval(Int(l), PositiveInf) -> this.AddChange(mr,Interval(Int(l*cnst),PositiveInf))
 
-                // ⊤ * c = ⊤ ; ⊥ * c = ⊥
-                |Bottom //this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
+                // ⊤ * c = ⊤ ; ⊥ * c = c
+                |Bottom -> this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
                 |Top -> ignore()
 
                 |_ -> failwith("Wrong interval")
@@ -191,7 +198,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         // Top element = (<aloc-0,⊤>;...;<aloc-n,⊤>)
         member this.Top() = 
             let tmp = new AbstractState() in 
-            availableVars |> List.map (fun x -> (x,ValueSet(Top))) |> List.iter (fun x -> tmp.Add(x)) ; tmp
+            availableVars |> List.map (fun x -> (x,ValueSet(Top))) |> List.iter tmp.Add ; tmp
         
         // Returns true if the value-set states1.[aloc] is a subset of states2.[aloc], for each aloc in s1
         // false otherwise
@@ -229,13 +236,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         // [a, b] U [c, d] = [min(a,c), max(b,d)]
         member this.Join states1 states2 = 
 
-            let newState = new AbstractState()
-            newState.SetNWidened(states1.GetNWidened())
-            let ks = states1.Keys |> Seq.toList
-
-            // clone abstract state 
-            for k in ks do
-                newState.Add(k,states1.Map.[k].Clone())
+            let newState = states1.Clone()
 
             // union between two VS (sub-join)
             let JOIN (vs1 : ValueSet) (vs2 : ValueSet) : ValueSet = 
@@ -331,13 +332,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
             then (this:>ILattice<AbstractState>).Join states1 states2
             else
     
-                let newStates = new AbstractState()
-                newStates.SetNWidened(states1.GetNWidened())
-                let ks = states1.Keys |> Seq.toList
-    
-                // clone abstract state 
-                for k in ks do
-                    newStates.Add(k,states1.Map.[k].Clone())
+                let newStates = states1.Clone()
                     
                 let WIDEN (vs1 : ValueSet) (vs2 : ValueSet) k =
                     for memreg in (vs1.MemRegs()) do
@@ -371,29 +366,46 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
 
     // states -> states[VSk+c/VSk] where VSk is k's VS = [a,b], and VSk+c = [a+c,b+c]  
     member this.AdjustByC (states : AbstractState) (aloc : aloc) cnst = 
-        let newStates = new AbstractState()
-        newStates.SetNWidened(states.GetNWidened())
-        let ks = states.Keys |> Seq.toList
-
-        // clone abstract state 
-        for k in ks do
-            newStates.Add(k,states.Map.[k].Clone())
-
-        // subst newStates[aloc+c/aloc]
+        let newStates = states.Clone()
         newStates.Map.[aloc].AdjustByConst(cnst)
         newStates
 
     // states -> states[VSk*c/VSk] where VSk is k's VS = [a,b], and VSk*c = [a*c,b*c]  
     member this.TimesByC (states : AbstractState) (aloc : aloc) cnst = 
-        let newStates = new AbstractState()
-        newStates.SetNWidened(states.GetNWidened())
-        let ks = states.Keys |> Seq.toList
-
-        // clone abstract state 
-        for k in ks do
-            newStates.Add(k,states.Map.[k].Clone())
-
-        // subst newStates[aloc*c/aloc]
+        let newStates = states.Clone()
         newStates.Map.[aloc].TimesByConst(cnst)
         newStates
+
+    // VS1 + VS2 :
+    // ⊤ + ⊥ = ⊤;    ⊤ + ⊤ = ⊤;        ⊤ + I = ⊤;
+    //               ⊥ + ⊥ = ⊥;        ⊥ + I = I;
+    // I1 : [a,b] + I2 : [c,d] = [a+c,b+d] 
+    static member (+) (vs1 : ValueSet, vs2 : ValueSet) =
+        let newVS = vs1.Clone()
+        for mr in vs1.MemRegs() do
+
+            match vs1.Map.[mr], vs2.Map.[mr] with
+            |Interval(Int(l1),Int(r1)),Interval(Int(l2),Int(r2)) -> newVS.AddChange(mr,Interval(Int(l1+l2),Int(r1+r2)))
+            |_,Top -> newVS.AddChange(mr,Top)
+            |Bottom,Interval(l,r) -> newVS.AddChange(mr,Interval(l,r))
+            
+            |_ -> ignore()
+        newVS
+
+    // VS1 * VS2 :
+    // ⊤ * ⊥ = ⊤;    ⊤ * ⊤ = ⊤;        ⊤ * I = ⊤;
+    //               ⊥ * ⊥ = ⊥;        ⊥ * I = I;
+    // I1 : [a,b] * I2 : [c,d] = [a*c,b*d] 
+    static member (*) (vs1 : ValueSet, vs2 : ValueSet) =
+        let newVS = vs1.Clone()
+        for mr in vs1.MemRegs() do
+
+            match vs1.Map.[mr], vs2.Map.[mr] with
+            |Interval(Int(l1),Int(r1)),Interval(Int(l2),Int(r2)) -> newVS.AddChange(mr,Interval(Int(l1*l2),Int(r1*r2)))
+            |_,Top -> newVS.AddChange(mr,Top)
+            |Bottom,Interval(l,r) -> newVS.AddChange(mr,Interval(l,r))
+            
+            |_ -> ignore()
+        newVS
+
 ;;
