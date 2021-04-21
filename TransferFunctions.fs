@@ -15,13 +15,11 @@
  *    e.After := e.Before \ [R1 -> *] ∪ [R1 -> vs TimesByConst c]
  *
  * SumAloc : R1 = R2 + R3
- *    let [R2 -> vs2] ∈ e.Before
- *    let [R3 -> vs3] ∈ e.Before
+ *    let [R2 -> vs2], [R3 -> vs3] ∈ e.Before
  *    e.After := e.Before \ [R1 -> *] ∪ [R1 -> vs2 + vs3]
  *
  * TimesAloc : R1 = R2 * R3
- *    let [R2 -> vs2] ∈ e.Before
- *    let [R3 -> vs3] ∈ e.Before
+ *    let [R2 -> vs2], [R3 -> vs3] ∈ e.Before
  *    e.After := e.Before \ [R1 -> *] ∪ [R1 -> vs2 * vs3]
  *
  * LeqConst : R1 ≤ c
@@ -32,9 +30,10 @@
  *    let [R1 -> vs1] ∈ e.Before and vsc = ([c, inf], ⊤, ..., ⊤)
  *    e.After := e.Before − [R1 -> *] ∪ [R1 -> vs1 MEET vsc ]
  *
- * LeqVar : R1 ≤ R2
- *    let [R1 -> vs1 ], [R2 -> vs2] ∈ e.Before and vslb = RemoveUpperBounds(vs2)
- *    e.After := e.Before − [R1 -> ∗] ∪ [R1 -> vs1 MEET vslb]
+ * GeqAloc : R1 ≥ R2
+ *    let [R1 -> vs1 ], [R2 -> vs2] ∈ e.Before 
+ *    let vslb = RemoveUpperBounds(vs2) and vsub = RemoveLowerBounds(vs1)
+ *    e.After := e.Before − [R1 -> ∗] ∪ [R1 -> vs1 MEET vslb] - [R2 -> ∗] ∪ [R2 -> vs2 MEET vsub]
  *
  *)
 
@@ -129,7 +128,9 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             
         in f
 
-    |LeqVar(R1,R2) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs1 MEET RemoveUpperBound(vs2)])
+    |GeqAloc(R1,R2) -> 
+    // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs1 MEET RemoveUpperBound(vs2)] 
+    //                       \ [R2 -> *] u [R2 -> vs2 MEET RemoveLowerBound(vs1)])
 
         let f (oldAbs : AbstractState) = 
             let abs = oldAbs.Clone()
@@ -137,6 +138,11 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             // abs.[R1] = abs.[R2].RmUpperBounds ; 
             abs.Map.[R1] <- abs.Map.[R2].Clone()
             abs.Map.[R1].RmUpperBounds()
+
+            // abs.[R2] = abs.[R1].RmLowerBounds ; 
+            abs.Map.[R2] <- oldAbs.Map.[R1].Clone()
+            abs.Map.[R2].RmLowerBounds()
+
             L.Meet oldAbs abs
 
         in f

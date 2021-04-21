@@ -176,7 +176,6 @@ asb-->11 // [x -> {[1,2]; ⊤} ; y -> {(10,11),⊥} ; z -> {⊥,⊤} ]
 (*************************************************************)
 
 // While test
-
 (* var x
  * x = 0
  * while (x <= 5)
@@ -214,7 +213,6 @@ asb-->4 // x -> {[0,5],[1,inf]}
 (*************************************************************)
 
 // Double-while test
-
 (*
  * let x,y
  * x=0
@@ -271,19 +269,21 @@ let cfg5 =
         ])
     )
 ;;
-main cfg5*)
+main cfg5
+*)
 
 (*************************************************************)
 
+// Factorial 
 (* let x, fact
- * x = 3; fact = 1
+ * x = 3  // input x
+ * fact = 1
  * while x >= 1
  *    fact = fact * x 
  *    x = x - 1
  * Return;
  *)
 
-// Factorial test
 // Uncomment from here
 (*
 let Guard = new Node(3, GeqConst("x",1), []);;
@@ -314,4 +314,58 @@ abs-->3 // [x -> {[0,3],⊤} ; fact -> {⊤, [1, inf]}]
 abs-->4 // [x -> {[1,3], [-inf, -1]} ; fact -> {⊤, [1, inf]}]
 abs-->5 // [x -> {[1,3], [-inf, -1]} ; fact -> {⊤, [1, inf]}]
 abs-->6 // [x -> {[1,3], [-inf, -1]} ; fact -> {⊤, [1, inf]}]
+*)
+
+(*************************************************************)
+
+// Fibonacci
+(* let f0, f1, f2, i, n
+ * n = 5   // input n
+ * f0 = 0; f1 = 0; f2 = 1
+ * i = 0
+ * while i < n
+ *    f0 = f1
+ *    f1 = f2
+ *    f2 = f1 + f0
+ *    i = i + 1
+ * Return
+ *)
+
+// Uncomment from here
+(*
+
+let Guard = new Node(7, GeqAloc("m","i"), []);;
+let Body = 
+    new Node(8, SumConst("f0","f1",0), [
+        new Node(9, SumConst("f1","f2",0), [
+            new Node(10, SumAloc("f2","f1","f0"),[
+                new Node(11, SumConst("i","i",1), [Guard])
+            ])
+        ])
+    ])
+;;
+let Exit = new Node(12, Return, []);;
+Guard.ChangeSucc([Body;Exit])
+
+let cfg7 = 
+    new CFG(
+        new Node(0,GlobalDec(["n";"f0";"f1";"f2";"i";"m"]), [
+            new Node(1, SimpleAss("n", 5), [
+                new Node(2,SimpleAss("f0",0), [
+                    new Node(3,SimpleAss("f1",0), [
+                        new Node(4, SimpleAss("f2",1), [
+                            new Node(5, SimpleAss("i",0), [
+                                new Node(6, SumConst("m","n",-1), [
+                                    Guard
+                                ])
+                            ])
+                        ])
+                    ])
+                ])
+            ])
+        ])
+    )
+;;
+
+let abs = main cfg7;;
 *)

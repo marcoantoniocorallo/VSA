@@ -5,7 +5,7 @@
  * Ass3 :      R1 = *(R2 + c1 ) + c2
  * LeqConst :  R1 ≤ c
  * GeqConst :  R1 ≥ c
- * LeqVar :    R1 ≤ R2
+ * GeqAloc :    R1 ≥ R2
  *
  * ------------------ Defined by me ------------------
  * Global dec : R1, R2,..., Rn
@@ -27,7 +27,7 @@ type Exp =
     |Ass3 of aloc * aloc * int * int
     |LeqConst of aloc * int 
     |GeqConst of aloc * int 
-    |LeqVar of aloc * aloc
+    |GeqAloc of aloc * aloc
 
     |GlobalDec of aloc list
     |SimpleAss of aloc * int
