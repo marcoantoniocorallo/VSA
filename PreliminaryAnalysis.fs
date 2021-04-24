@@ -14,7 +14,16 @@ let mutable availableVars : aloc list = [] ;;
 let availableVarsAnalysis (cfg : ICFG) : (aloc list) =
 
     // if statm = {HeapDec/GlobalDec} -> add new defined vars to ls
-    let h statm ls = match statm with |GlobalDec(l) -> ls@l |HeapDec(l) -> ls@(List.map fst l) |_ -> ls
+    let h statm ls = 
+        match statm with 
+        |GlobalDec(l) -> ls@l 
+        |HeapDec(l) -> ls@(List.map fst l) 
+        |Array(a,size) -> 
+            let mutable newl = [] in 
+            for i=0 to (size-1) do
+                if i%4=0 then newl<-newl@[(a+"+"+(string i))] else ignore()
+            ls@newl
+        |_ -> ls
 
     let rec f nodes l =
         match (nodes : INode list) with
@@ -36,6 +45,11 @@ let SizeOfAnalysis (cfg : ICFG) =
             match (x.Statm()) with 
             |GlobalDec(v) -> v |> List.map (fun x -> map.TryAdd(x,4) )     |> ignore ; f xs
             |HeapDec(v) ->   v |> List.map (fun (x,s) -> map.TryAdd(x,s) ) |> ignore ; f xs
+            |Array(a,size) ->
+                map.TryAdd(a,size) |> ignore
+                for i=0 to (size-1) do
+                    if i%4=0 then (map.TryAdd(a+"+"+(string i),4) |> ignore) else ignore()
+                f xs
             |_ -> f xs
     in f nodes
 ;;

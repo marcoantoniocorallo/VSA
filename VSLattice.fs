@@ -1,6 +1,6 @@
 open System.Collections.Generic
 
-let WideningThreshold = 20;;
+let WideningThreshold = 7;;
 
 // An abstract state is a map: aloc -> VS
 // Implementation is more or less a wrapper for Dictionary<aloc,ValueSet> objs, 
@@ -240,8 +240,7 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
 
             // union between two VS (sub-join)
             let JOIN (vs1 : ValueSet) (vs2 : ValueSet) : ValueSet = 
-                let newVS = new ValueSet(vs1.MemRegs() |> 
-                                         List.map (fun (x : MemoryRegion) -> (x,vs1.Map.[x]))) 
+                let newVS = vs1.Clone()
                 let rec g memregs = 
                     match memregs with
                     |[] -> newVS
