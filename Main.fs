@@ -397,22 +397,20 @@ abs-->12// [n -> {[5,5]} ; f0 -> {[0,inf]} ; f1 -> {[0,inf]} ; f2 -> {[1,inf]} ;
 
 // Uncomment from here
 (*
-let Guard = new Node(4, LeqConst("i",4),[]);;
-let Body = new Node(5,ArrayAss("A","i","i"),[
-               new Node(6, SumConst("i","i",1), [Guard])
+let Guard = new Node(3, LeqConst("i",4),[]);;
+let Body = new Node(4,ArrayAss("A","i","i"),[
+               new Node(5, SumConst("i","i",1), [Guard])
            ])
 ;;
-let Exit = new Node(7, Return, []);;
+let Exit = new Node(6, Return, []);;
 Guard.ChangeSucc([Body;Exit]);;
 
 let cfg8 =
     new CFG(
         new Node(0,GlobalDec(["i"]), [
-            new Node(1,Array("A",20), [
+            new Node(1,Array("A",20,0), [
                 new Node(2,SimpleAss("i",0), [
-                    new Node(3,ArrayInit("A",0), [
-                        Guard
-                    ])
+                    Guard
                 ])
             ])
         ])
@@ -422,10 +420,10 @@ let cfg8 =
 let abs = main cfg8
 abs-->0 // []
 abs-->1 // [i -> {⊤,⊥} ]
-abs-->2 // [i -> {⊤,⊥} ; A+0 -> {⊤,⊥} ; A+4 -> {⊤,⊥} ; A+8 -> {⊤,⊥} ; A+12 -> {⊤,⊥} ; A+16 -> {⊤,⊥}]
-abs-->3 // [i -> {0,0} ; A+0 -> {⊤,⊥} ; A+4 -> {⊤,⊥} ; A+8 -> {⊤,⊥} ; A+12 -> {⊤,⊥} ; A+16 -> {⊤,⊥}]
-abs-->4 // [i -> {0,5} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
+abs-->2 // [i -> {⊤,⊥} ; A+0 -> {[0,0],⊥} ; A+4 -> {[0,0],⊥} ; A+8 -> {[0,0],⊥} ; A+12 -> {[0,0],⊥} ; 
+        //  A+16 -> {[0,0],⊥}]
+abs-->3 // [i -> {0,5} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
+abs-->4 // [i -> {0,4} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
 abs-->5 // [i -> {0,4} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
 abs-->6 // [i -> {0,4} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
-abs-->7 // [i -> {0,4} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
 *)

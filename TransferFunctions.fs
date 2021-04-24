@@ -6,14 +6,11 @@
  * SimpleAss : R1 = k ;; SimpleHAss : R1 = k
  *    e.After := e.Before \ {R1} ∪ [R1 -> k]
  * 
- * Array : A[s]
- *    e.After := e.Before ∪ [A+0 -> ⊤] ∪ [A+4 -> ⊤] ... ∪ [A+(s-4) -> ⊤]
+ * Array : A[0...size-1] = k
+ *    e.After := e.Before ∪ [A+0 -> k] ∪ [A+4 -> k] ... ∪ [A+(s-4) -> k]
  *
  * ArrayAss : A[i] = k
  *    e.After := e.Before \ {A+j} ∪ [A+j -> k] for j ∈ i.VS 
- *
- * ArrayInit : A[...] = n
- *    e.After := e.Before \ {A+0} ∪ [A+0 -> n] ... \ {A+(s-4)} ∪ [A+(s-4) -> n]
  *
  * SumConst : R1 = R2 + c 
  *    let [R2 -> vs] ∈ e.Before
@@ -77,10 +74,11 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             abs 
         in f
 
-    |Array(A,size) -> // returns fun : x -> x u [A[0,...,sizeOfA] -> ⊤])
+    |Array(A,size,n) -> // returns fun : x -> x u [A[0,...,sizeOfA] -> ⊤])
         let abs = new AbstractState() in
         for i=0 to size-1 do
-            if i%4=0 then abs.Add(A+"+"+(string i),new ValueSet(GLOBAL,Top)) else ignore()
+            if i%4=0 then abs.Add(A+"+"+(string i),new ValueSet(GLOBAL,Interval(Int(n),Int(n)))) 
+            else ignore()
         (fun (x : AbstractState) -> L.Join x abs)
 
     |ArrayAss(A,i,k) -> // returns fun : x -> x[k.Global/A[i].Global]
@@ -99,16 +97,6 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
                 |_ -> ignore()
             newAbs
-        in f
-
-    |ArrayInit(A,n) -> // returns fun : x -> (x \ [A[0,...,sizeOfA] -> *]) u [A[0,...,sizeOfA] -> n])
-
-        let f (oldAbs : AbstractState) =
-            let abs = oldAbs.Clone()
-            for i=0 to (SizeOf.[A]-1) do
-                if i%4=0 then abs.Map.[A+"+"+(string i)].AddChange(GLOBAL,Interval(Int(n),Int(n)))
-                else ignore()
-            abs
         in f
 
     |SumConst(aloc1,aloc2,cnst) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs2 AdjustByConst c])

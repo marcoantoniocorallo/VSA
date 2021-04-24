@@ -18,7 +18,7 @@ let availableVarsAnalysis (cfg : ICFG) : (aloc list) =
         match statm with 
         |GlobalDec(l) -> ls@l 
         |HeapDec(l) -> ls@(List.map fst l) 
-        |Array(a,size) -> 
+        |Array(a,size,n) -> 
             let mutable newl = [] in 
             for i=0 to (size-1) do
                 if i%4=0 then newl<-newl@[(a+"+"+(string i))] else ignore()
@@ -45,7 +45,7 @@ let SizeOfAnalysis (cfg : ICFG) =
             match (x.Statm()) with 
             |GlobalDec(v) -> v |> List.map (fun x -> map.TryAdd(x,4) )     |> ignore ; f xs
             |HeapDec(v) ->   v |> List.map (fun (x,s) -> map.TryAdd(x,s) ) |> ignore ; f xs
-            |Array(a,size) ->
+            |Array(a,size,n) ->
                 map.TryAdd(a,size) |> ignore
                 for i=0 to (size-1) do
                     if i%4=0 then (map.TryAdd(a+"+"+(string i),4) |> ignore) else ignore()
