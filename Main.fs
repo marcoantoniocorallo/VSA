@@ -286,6 +286,7 @@ main cfg5
 
 // Uncomment from here
 (*
+let n = 3;;
 let Guard = new Node(3, GeqConst("x",1), []);;
 let Body =new Node(4, TimesAloc("fact","fact","x"), [
               new Node(5, SumConst("x","x",-1), [Guard] )
@@ -297,7 +298,7 @@ Guard.ChangeSucc([Body;Exit])
 let cfg6 = 
     new CFG(
         new Node(0,GlobalDec(["x";"fact"]), [
-            new Node(1,SimpleAss("x",3), [
+            new Node(1,SimpleAss("x",n), [
                 new Node(2,SimpleAss("fact",1), [
                     Guard
                 ])
@@ -333,7 +334,7 @@ abs-->6 // [x -> {[1,3], [-inf, -1]} ; fact -> {⊤, [1, inf]}]
 
 // Uncomment from here
 (*
-
+let n = 5;;
 let Guard = new Node(7, GeqAloc("m","i"), []);;
 let Body = 
     new Node(8, SumConst("f0","f1",0), [
@@ -350,7 +351,7 @@ Guard.ChangeSucc([Body;Exit])
 let cfg7 = 
     new CFG(
         new Node(0,GlobalDec(["n";"f0";"f1";"f2";"i";"m"]), [
-            new Node(1, SimpleAss("n", 5), [
+            new Node(1, SimpleAss("n", n), [
                 new Node(2,SimpleAss("f0",0), [
                     new Node(3,SimpleAss("f1",0), [
                         new Node(4, SimpleAss("f2",1), [
@@ -384,7 +385,8 @@ let abs = main cfg7;;
 
 // Uncomment from here
 (*
-let Guard = new Node(3, LeqConst("i",4),[]);;
+let n = 5;;
+let Guard = new Node(3, LeqConst("i",n-1),[]);;
 let Body = new Node(4,ArrayAss("A","i","i"),[
                new Node(5, SumConst("i","i",1), [Guard])
            ])
@@ -395,7 +397,7 @@ Guard.ChangeSucc([Body;Exit]);;
 let cfg8 =
     new CFG(
         new Node(0,GlobalDec(["i"]), [
-            new Node(1,Array("A",20,0), [
+            new Node(1,Array("A",n*4,0), [
                 new Node(2,SimpleAss("i",0), [
                     Guard
                 ])

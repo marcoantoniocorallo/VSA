@@ -13,6 +13,8 @@
  *
  * Array dec : A[0...size-1] = k 
  * ArrayAss : A[i] = k
+ * ArrayLeqConst: A[i] <= c
+ * ArrayGeqConst: A[i] => c
  *
  * Heap dec : R1 = malloc(s1), R2 = malloc(s2), ..., Rn = = malloc(sn)
  * SimpleHAss : R1 = val	about an aloc dynamically declared
