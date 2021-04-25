@@ -212,7 +212,7 @@ asb-->4 // x -> {[0,5],[1,inf]}
 
 (*************************************************************)
 
-// Double-while test
+// nested-while test
 (*
  * let x,y
  * x=0
@@ -368,25 +368,12 @@ let cfg7 =
 ;;
 
 let abs = main cfg7;;
-abs-->0 // []
-abs-->1 // [n -> {⊤,⊥} ; f0 -> {⊤,⊥} ; f1 -> {⊤,⊥} ; f2 -> {⊤,⊥} ; i -> {⊤,⊥} ; m -> {⊤,⊥} ]
-abs-->2 // [n -> {[5,5]} ; f0 -> {⊤,⊥} ; f1 -> {⊤,⊥} ; f2 -> {⊤,⊥} ; i -> {⊤,⊥} ; m -> {⊤,⊥} ]
-abs-->3 // [n -> {[5,5]} ; f0 -> {[0,0]} ; f1 -> {⊤,⊥} ; f2 -> {⊤,⊥} ; i -> {⊤,⊥} ; m -> {⊤,⊥} ]
-abs-->4 // [n -> {[5,5]} ; f0 -> {[0,0]} ; f1 -> {[0,0]} ; f2 -> {⊤,⊥} ; i -> {⊤,⊥} ; m -> {⊤,⊥} ]
-abs-->5 // [n -> {[5,5]} ; f0 -> {[0,0]} ; f1 -> {[0,0]} ; f2 -> {[1,1]} ; i -> {⊤,⊥} ; m -> {⊤,⊥} ]
-abs-->6 // [n -> {[5,5]} ; f0 -> {[0,0]} ; f1 -> {[0,0]} ; f2 -> {[1,1]} ; i -> {[0,0]} ; m -> {⊤,⊥} ]
-abs-->7 // [n -> {[5,5]} ; f0 -> {[0,inf]} ; f1 -> {[0,inf]} ; f2 -> {[1,inf]} ; i -> {[0,5]} ; m -> {[4,4]} ]
-abs-->8 // [n -> {[5,5]} ; f0 -> {[0,inf]} ; f1 -> {[0,inf]} ; f2 -> {[1,inf]} ; i -> {[0,4]} ; m -> {[4,4]} ]
-abs-->9 // [n -> {[5,5]} ; f0 -> {[0,inf]} ; f1 -> {[0,inf]} ; f2 -> {[1,inf]} ; i -> {[0,4]} ; m -> {[4,4]} ]
-abs-->10// [n -> {[5,5]} ; f0 -> {[0,inf]} ; f1 -> {[1,inf]} ; f2 -> {[1,inf]} ; i -> {[0,4]} ; m -> {[4,4]} ]
-abs-->11// [n -> {[5,5]} ; f0 -> {[0,inf]} ; f1 -> {[1,inf]} ; f2 -> {[1,inf]} ; i -> {[0,4]} ; m -> {[4,4]} ]
-abs-->12// [n -> {[5,5]} ; f0 -> {[0,inf]} ; f1 -> {[0,inf]} ; f2 -> {[1,inf]} ; i -> {[0,4]} ; m -> {[4,4]} ]
 *)
 
 (*************************************************************)
 
 //Array test
-(* let A[sizeof(int)*5]
+(* let A[sizeof(int)*5] = (0,...,0)
  * let i
  * i = 0
  * while i<=4
@@ -418,12 +405,59 @@ let cfg8 =
 ;;
 
 let abs = main cfg8
-abs-->0 // []
-abs-->1 // [i -> {⊤,⊥} ]
-abs-->2 // [i -> {⊤,⊥} ; A+0 -> {[0,0],⊥} ; A+4 -> {[0,0],⊥} ; A+8 -> {[0,0],⊥} ; A+12 -> {[0,0],⊥} ; 
-        //  A+16 -> {[0,0],⊥}]
-abs-->3 // [i -> {0,5} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
-abs-->4 // [i -> {0,4} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
-abs-->5 // [i -> {0,4} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
-abs-->6 // [i -> {0,4} ; A+0 -> {0,4} ; A+4 -> {0,4} ; A+8 -> {0,4} ; A+12 -> {0,4} ; A+16 -> {0,4} ; A+20 -> {0,4}]
+*)
+
+(*************************************************************)
+
+// Sieve of Eratosthenes (without some optimizations)
+
+(* let i,j
+ * let A[n+1] = (1,...,1)
+ * A[0] = 0
+ * A[1] = 0
+ * i = 2
+ * while i <= (n+1)
+ *    if A[i] >= 1
+ *       j = i*2
+ *       while j <= n
+ *          A[j] = 0
+ *          j = j+i
+ *)
+
+// Uncomment from here
+(*
+let n = 7;;
+let Guard0 = new Node(5, LeqConst("i",n+1), []);;
+let Guard1 = new Node(6, ArrayGeqConst("A","i",1),[]);;
+let Body1 = new Node(7, TimesConst("j","i",2), []);;
+let Guard2 = new Node(8,LeqConst("j",n),[]);;
+let Body2 = new Node(9, SimpleAss("zero",0), [
+                new Node(10, ArrayAss("A","j","zero"),[
+                    new Node(11, SumAloc("j","j","i"), [Guard2])
+                ])
+            ]);;
+let Exit0 = new Node(12,Return,[]);;
+
+Guard2.ChangeSucc([Body2;Guard1])
+Body1.ChangeSucc([Guard2])
+Guard1.ChangeSucc([Body1;Guard0]);;
+Guard0.ChangeSucc([Guard1;Exit0]);;
+
+let cfg9 =
+    new CFG(
+        new Node(0,GlobalDec(["i";"j";"zero"]), [
+            new Node(1,Array("A",(n+1)*4,1), [
+                new Node(2,SimpleAss("A+0",0), [
+                    new Node(3, SimpleAss("A+4",0), [
+                        new Node(4, SimpleAss("i",2),[ 
+                            Guard0
+                        ])
+                    ])
+                ])
+            ])
+        ])
+    )
+;;
+
+let abs = main cfg9;;
 *)

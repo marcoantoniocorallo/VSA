@@ -47,7 +47,7 @@
 let AR0 = MemoryRegion(RegionType.AR,0);; // Main procedure AR
 let GLOBAL = MemoryRegion(RegionType.Global,1);; // Unique Global MR
 
-let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) = 
+let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) = 
 
     // Lattice instance for using ILattice methods (join,meet,...)
     let VS = new ValueSet(Bottom)
@@ -94,6 +94,42 @@ let TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
                         with
                         | :?System.Collections.Generic.KeyNotFoundException ->
                         newAbs.Add(A+"+"+(string (j*4)), oldAbs.Map.[k].Clone())
+
+                |_ -> ignore()
+            newAbs
+        in f
+
+    |ArrayLeqConst(A,i,c) ->
+
+        let f (oldAbs : AbstractState) = 
+            let mutable newAbs = oldAbs.Clone()
+            for mr in oldAbs.Map.[i].MemRegs() do
+                match oldAbs.Map.[i].Map.[mr] with
+                |Interval(Int(l),Int(r)) -> 
+                    for j=l to r do
+                        try 
+                            newAbs <- (TransferFunctions(LeqConst(A+"+"+(string (j*4)),c)) newAbs)
+                        with
+                        | :?System.Collections.Generic.KeyNotFoundException ->
+                        newAbs.Add(A+"+"+(string (j*4)), new ValueSet(Interval(NegativeInf,Int(c))))
+
+                |_ -> ignore()
+            newAbs
+        in f
+
+    |ArrayGeqConst(A,i,c) ->
+
+        let f (oldAbs : AbstractState) = 
+            let mutable newAbs = oldAbs.Clone()
+            for mr in oldAbs.Map.[i].MemRegs() do
+                match oldAbs.Map.[i].Map.[mr] with
+                |Interval(Int(l),Int(r)) -> 
+                    for j=l to r do
+                        try 
+                            newAbs <- (TransferFunctions(GeqConst(A+"+"+(string (j*4)),c)) newAbs)
+                        with
+                        | :?System.Collections.Generic.KeyNotFoundException ->
+                        newAbs.Add(A+"+"+(string (j*4)), new ValueSet(Interval(Int(c),PositiveInf)))
 
                 |_ -> ignore()
             newAbs

@@ -1,6 +1,6 @@
 open System.Collections.Generic
 
-let WideningThreshold = 7;;
+let WideningThreshold = 10;;
 
 // An abstract state is a map: aloc -> VS
 // Implementation is more or less a wrapper for Dictionary<aloc,ValueSet> objs, 

@@ -37,6 +37,8 @@ type Exp =
 
     |Array of aloc * int * int
     |ArrayAss of aloc * aloc * aloc
+    |ArrayLeqConst of aloc * aloc * int
+    |ArrayGeqConst of aloc * aloc * int
 
     |HeapDec of (aloc * int) list
     |SimpleHAss of aloc * int
