@@ -46,6 +46,7 @@
 // Macro def about the main memregs, so they can be edited
 let AR0 = MemoryRegion(RegionType.AR,0);; // Main procedure AR
 let GLOBAL = MemoryRegion(RegionType.Global,1);; // Unique Global MR
+let MaxGap = 100;;
 
 let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) = 
 
@@ -87,7 +88,7 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             let newAbs = oldAbs.Clone()
             for mr in oldAbs.Map.[i].MemRegs() do
                 match oldAbs.Map.[i].Map.[mr] with
-                |Interval(Int(l),Int(r)) -> 
+                |Interval(Int(l),Int(r)) when (r-l)<=MaxGap ->
                     for j=l to r do
                         try 
                             newAbs.Map.[A+"+"+(string (j*4))].AddChange(mr,oldAbs.Map.[k].Map.[mr])
@@ -95,7 +96,9 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
                         | :?System.Collections.Generic.KeyNotFoundException ->
                         newAbs.Add(A+"+"+(string (j*4)), oldAbs.Map.[k].Clone())
 
-                |_ -> ignore()
+                |Interval(l,r) -> failwith(A+"["+(Interval(l,r).ToString())+"]:\nPossible Stack Overflow")
+                |Top -> failwith(A+"[Top]:\nPossible Stack Overflow")
+                |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.Map.[A+"+"+(string (j*4))].AddChange(mr,Bottom)
             newAbs
         in f
 
@@ -105,7 +108,7 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             let mutable newAbs = oldAbs.Clone()
             for mr in oldAbs.Map.[i].MemRegs() do
                 match oldAbs.Map.[i].Map.[mr] with
-                |Interval(Int(l),Int(r)) -> 
+                |Interval(Int(l),Int(r)) when (r-l)<=MaxGap -> 
                     for j=l to r do
                         try 
                             newAbs <- (TransferFunctions(LeqConst(A+"+"+(string (j*4)),c)) newAbs)
@@ -113,7 +116,9 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
                         | :?System.Collections.Generic.KeyNotFoundException ->
                         newAbs.Add(A+"+"+(string (j*4)), new ValueSet(Interval(NegativeInf,Int(c))))
 
-                |_ -> ignore()
+                |Interval(l,r) -> failwith(A+"["+(Interval(l,r).ToString())+"]:\nPossible Stack Overflow")
+                |Top -> failwith(A+"[Top]:\nPossible Stack Overflow")
+                |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.Map.[A+"+"+(string (j*4))].AddChange(mr,Bottom)
             newAbs
         in f
 
@@ -123,7 +128,7 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             let mutable newAbs = oldAbs.Clone()
             for mr in oldAbs.Map.[i].MemRegs() do
                 match oldAbs.Map.[i].Map.[mr] with
-                |Interval(Int(l),Int(r)) -> 
+                |Interval(Int(l),Int(r)) when (r-l)<=MaxGap -> 
                     for j=l to r do
                         try 
                             newAbs <- (TransferFunctions(GeqConst(A+"+"+(string (j*4)),c)) newAbs)
@@ -131,7 +136,9 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
                         | :?System.Collections.Generic.KeyNotFoundException ->
                         newAbs.Add(A+"+"+(string (j*4)), new ValueSet(Interval(Int(c),PositiveInf)))
 
-                |_ -> ignore()
+                |Interval(l,r) -> failwith(A+"["+(Interval(l,r).ToString())+"]:\nPossible Stack Overflow")
+                |Top -> failwith(A+"[Top]:\nPossible Stack Overflow")
+                |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.Map.[A+"+"+(string (j*4))].AddChange(mr,Bottom)
             newAbs
         in f
 

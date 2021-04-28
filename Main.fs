@@ -2,6 +2,7 @@
 let main cfg =
     SizeOf <- SizeOfAnalysis cfg
     availableVars <- availableVarsAnalysis cfg
+    WideningThreshold <- max (ThresholdCalc cfg) WideningDefaultValue
     WorkList (new ValueSet(Top)) TransferFunctions cfg
 ;;
 
@@ -101,10 +102,10 @@ asb-->1 // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
 asb-->2 // [x -> {3,⊥} ; y -> {⊤,⊥}]
 asb-->3 // [x -> {3,⊥} ; y -> {10,⊥}]
 asb-->4 // [x -> {3,⊥} ; y -> {11,⊥}]
-asb-->8 // [x -> {3,⊥} ; y -> {10,⊥}]
 asb-->5 // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥}]
 asb-->6 // [x -> { {100; 101 } ,⊥} ; y -> { { 10; 11 } ,⊥} ; z -> {⊤,⊥}]
 asb-->7 // [x -> {⊤,1} ; y -> { { 10 ; 11 } ,⊥} ; z -> {⊤,⊥}]
+asb-->8 // [x -> {3,⊥} ; y -> {10,⊥}]
 *)
 
 (*************************************************************)
@@ -127,50 +128,54 @@ asb-->7 // [x -> {⊤,1} ; y -> { { 10 ; 11 } ,⊥} ; z -> {⊤,⊥}]
 let cfg2 = 
     new CFG(
         new Node(0, GlobalDec(["x";"y"]),[ 
-           new Node(1, SimpleAss("x",3), [
-               new Node(2, SimpleAss("y",10),[
-                    new Node(3, LeqConst("x",5), [
+            new Node(1, SimpleAss("x",3), [
+                new Node(2, SimpleAss("y",10),[
+                    new Node(3, If, [
 
                         // then
-                        new Node(4, SimpleAss("y",11), [
-                            new Node(5, SimpleAss("x",101), [
-                                new Node(6, GlobalDec(["z"]), [
-                                    new Node(7, SumConst("x","x",2),[
-                                        new Node(11, Return, [])
+                        new Node(4, LeqConst("x",5), [
+                            new Node(5, SimpleAss("y",11), [
+                                new Node(6, SimpleAss("x",101), [
+                                    new Node(7, GlobalDec(["z"]), [
+                                        new Node(8, SumConst("x","x",2),[
+                                            new Node(13, Return, [])
+                                        ])
                                     ])
-                                ])
-                            ])
-                        ])
-
-                        // else
-                        new Node(8, SimpleAss("x",100), [
-                            new Node(9, GlobalDec(["z"]), [
-                                new Node(10, SumConst("x","z",1),[
-                                    new Node(11, Return, [])
                                 ])
                             ])
                         ]);
 
+                        // else
+                        new Node(9, GeqConst("x",6), [
+                            new Node(10, SimpleAss("x",100), [
+                                new Node(11, GlobalDec(["z"]), [
+                                    new Node(12, SumConst("x","z",1),[
+                                        new Node(13, Return, [])
+                                    ])
+                                ])
+                            ]);
+                       ])
                     ])
-               ] )
-           ]);
+                ])
+            ]);
         ])
     )
 ;; 
-
-let asb = main cfg2
+let abs = main cfg2;;
 asb-->0  // []
 asb-->1  // [x -> {⊤,⊥} ; y -> {⊤,⊥}]
 asb-->2  // [x -> {3,⊥} ; y -> {⊤,⊥}]
 asb-->3  // [x -> {3,⊥} ; y -> {10,⊥}]
 asb-->4  // [x -> {3,⊥} ; y -> {10,⊥}]
-asb-->5  // [x -> {3,⊥} ; y -> {11,⊥}]
-asb-->6  // [x -> {101,⊥} ; y -> {11,⊥}]
-asb-->7  // [x -> {101,⊥} ; y -> {11,⊥} ; z -> {⊥,⊤}]
-asb-->8  // [x -> {3,⊥} ; y -> {10,⊥}]
-asb-->9  // [x -> {100,⊥} ; y -> {10,⊥}]
-asb-->10 // [x -> {100,⊥} ; y -> {10,⊥} ; z -> {⊥,⊤}]
-asb-->11 // [x -> {[1,2]; ⊤} ; y -> {(10,11),⊥} ; z -> {⊥,⊤} ]
+asb-->5  // [x -> {3,⊥} ; y -> {10,⊥}]
+asb-->6  // [x -> {3,⊥} ; y -> {11,⊥}]
+asb-->7  // [x -> {101,⊥} ; y -> {11,⊥}]
+asb-->8  // [x -> {101,⊥} ; y -> {11,⊥} ; z -> {⊥,⊤}]
+asb-->9  // [x -> {3,⊥} ; y -> {10,⊥}]
+asb-->10 // [x -> {⊥,⊥} ; y -> {10,⊥}]
+asb-->11 // [x -> {100,⊥} ; y -> {10,⊥}]
+asb-->12 // [x -> {100,⊥} ; y -> {10,⊥} ; z -> {⊥,⊤}]
+asb-->13 // [x -> {⊥; ⊤} ; y -> {(10,11),⊥} ; z -> {⊥,⊤} ]
 *)
 
 (*************************************************************)
@@ -186,17 +191,20 @@ asb-->11 // [x -> {[1,2]; ⊤} ; y -> {(10,11),⊥} ; z -> {⊥,⊤} ]
 // Defining first-of-while node without succs and then assign them to the node, in order to compile correctly
 // Test case 3: Uncomment from here
 (*
-
-let guard = Node(2, LeqConst("x",5), [])
-let body = Node(3, SumConst("x","x",1), [guard])
-let afterwhile = Node(4, Return, [])
-guard.ChangeSucc([body;afterwhile])
+let WhileNode = Node(2, While, []);;
+let guard = Node(3, LeqConst("x",5), []);;
+let body = Node(4, SumConst("x","x",1), [WhileNode]);;
+guard.ChangeSucc([body]);;
+let notguard = Node(5, GeqConst("x",6), []);;
+let exit = Node(6, Return, []);;
+notguard.ChangeSucc([exit]);;
+WhileNode.ChangeSucc([guard;notguard])
 
 let cfg3 = 
     new CFG(
         new Node(0,GlobalDec(["x"]),[
             new Node(1, SimpleAss("x",0), [
-                guard
+                WhileNode
             ])
         ])
     )
@@ -204,10 +212,12 @@ let cfg3 =
 let asb = main cfg3;; 
 
 asb-->0 // []
-asb-->1 // x -> {⊤,⊥}
-asb-->2 // x -> {[0,6],[1,inf]}
-asb-->3 // x -> {[0,5],[1,inf]}
-asb-->4 // x -> {[0,5],[1,inf]}
+asb-->1 // x -> {⊥, ⊤}
+asb-->2 // x -> {⊥,[0,6]}
+asb-->3 // x -> {⊥,[0,6]}
+asb-->4 // x -> {⊥,[0,5]}
+asb-->5 // x -> {⊥,[0,6]}
+asb-->6 // x -> {⊥,[6,6]}
 *)
 
 (*************************************************************)
@@ -226,19 +236,39 @@ asb-->4 // x -> {[0,5],[1,inf]}
 
 // Test-case 4: uncomment from here
 (*
-let guard1 = new Node(3,LeqConst("x",5),[]);;
-let guard2 = new Node(4,LeqConst("y",5),[]);;
-let body2 = new Node(5,SumConst("y","y",1),[guard2]);;
-let body1 = new Node(6, SumConst("x","x",1),[guard1]);;
-let afterwhile = new Node(7,Return,[]);;
+let whileNode1 = new Node(3, While, []);;
+let guard1 = new Node(4,LeqConst("x",5),[]);;
+
+let whileNode2 = new Node(5,While, []);;
+let guard2 = new Node(6,LeqConst("y",5),[
+    new Node(7,SumConst("y","y",1), [whileNode2])
+]);;
+let notguard2=new Node(8,GeqConst("y",6),[
+    new Node(9,SumConst("x","x",1), [whileNode1])
+]);;
+
+whileNode2.ChangeSucc([guard2;notguard2]);;   
+guard1.ChangeSucc([whileNode2]);;
+
+let notguard1 = new Node(10,GeqConst("x",6),[
+    new Node(11,Return,[])
+]);;
+whileNode1.ChangeSucc([guard1;notguard1]);;
+
+let body2 = new Node(6,SumConst("y","y",1),[guard2]);;
+let body1 = new Node(7, SumConst("x","x",1),[guard1]);;
+let exit = new Node(8,Return,[]);;
 guard1.ChangeSucc([guard2;afterwhile]);;
 guard2.ChangeSucc([body2;body1]);;
+notguard1.ChangeSucc([exit]);;
+whileNode1.ChangeSucc([guard1;notguard1]);;
+
 let cfg4 = 
     new CFG(
         new Node(0,GlobalDec(["x";"y"]), [
             new Node(1,SimpleAss("x",0), [
                 new Node(2,SimpleAss("y",0), [
-                    guard1
+                    whileNode1
                 ])
             ])
         ])
@@ -249,27 +279,15 @@ let abs = main cfg4;;
 abs-->0 // []
 abs-->1 // [x -> {⊤,⊥}, y -> {⊤,⊥}]
 abs-->2 // [x -> {[0,0],⊥}, y -> {⊤,⊥}]
-abs-->3 // [x -> {[0,6],⊥}, y -> {[0,5],[1,inf]}]
-abs-->4 // [x -> {[0,5],⊥}, y -> {[0,6],[1,inf]}]
-abs-->5 // [x -> {[0,5],⊥}, y -> {[0,5],[1,inf]}]
-abs-->6 // [x -> {[0,5],⊥}, y -> {[0,5],[1,inf]}]
-abs-->7 // [x -> {[0,5],⊥}, y -> {[0,5],[1,inf]}]
-*)
-(*
-let cfg5 = 
-    new CFG(
-        new Node(0,GlobalDec(["x";"y"]), [
-            new Node(1,SimpleAss("x",2), [
-                new Node(2,SimpleAss("y",10), [
-                    new Node(3, TimesAloc("x","x","y"), [
-                        new Node(4, Return, [])
-                    ])
-                ])
-            ])
-        ])
-    )
-;;
-main cfg5
+abs-->3 // [x -> {[0,6],⊥}, y -> {[0,6],⊥}]
+abs-->4 // [x -> {[0,6],⊥}, y -> {[0,6],⊥}]
+abs-->5 // [x -> {[0,5],⊥}, y -> {[0,6],⊥}]
+abs-->6 // [x -> {[0,5],⊥}, y -> {[0,6],⊥}]
+abs-->7 // [x -> {[0,5],⊥}, y -> {[0,5],⊥}]
+abs-->8 // [x -> {[0,5],⊥}, y -> {[0,6],⊥}]
+abs-->9 // [x -> {[0,5],⊥}, y -> {[6,6],⊥}]
+abs-->10// [x -> {[0,6],⊥}, y -> {[0,6],⊥}]
+abs-->11// [x -> {[6,6],⊥}, y -> {[0,6],⊥}]
 *)
 
 (*************************************************************)
@@ -287,34 +305,41 @@ main cfg5
 // Uncomment from here
 (*
 let n = 3;;
-let Guard = new Node(3, GeqConst("x",1), []);;
-let Body =new Node(4, TimesAloc("fact","fact","x"), [
-              new Node(5, SumConst("x","x",-1), [Guard] )
-          ])
-;;
-let Exit = new Node(6, Return, []);;
-Guard.ChangeSucc([Body;Exit])
+let whileNode = new Node(3, While, []);;
 
-let cfg6 = 
+let Guard = new Node(4, GeqConst("x",1), []);;
+let Body = new Node(5, TimesAloc("fact","fact","x"), [
+          new Node(6, SumConst("x","x",-1), [whileNode] )
+])
+Guard.ChangeSucc([Body]);;
+let notGuard = new Node(7, LeqConst("x",0), [
+          new Node(8, Return, [])
+]);;
+
+whileNode.ChangeSucc([Guard;notGuard]);;
+
+let cfg5 = 
     new CFG(
         new Node(0,GlobalDec(["x";"fact"]), [
             new Node(1,SimpleAss("x",n), [
                 new Node(2,SimpleAss("fact",1), [
-                    Guard
+                    whileNode
                 ])
             ])
         ])
     )
 ;;
 
-let abs = main cfg6;;
+let abs = main cfg5;;
 abs-->0 // []
 abs-->1 // [x -> {⊤,⊥} ; fact -> {⊤,⊥} ]
 abs-->2 // [x -> {[3,3],⊥} ; fact -> {⊤,⊥}]
-abs-->3 // [x -> {[0,3],⊤} ; fact -> {⊤, [1, inf]}]
-abs-->4 // [x -> {[1,3], [-inf, -1]} ; fact -> {⊤, [1, inf]}]
-abs-->5 // [x -> {[1,3], [-inf, -1]} ; fact -> {⊤, [1, inf]}]
-abs-->6 // [x -> {[1,3], [-inf, -1]} ; fact -> {⊤, [1, inf]}]
+abs-->3 // [x -> {[0,3],⊥} ; fact -> {⊥, [1, inf]}]
+abs-->4 // [x -> {[0,3],⊥} ; fact -> {⊥, [1, inf]}]
+abs-->5 // [x -> {[1,3],⊥} ; fact -> {⊥, [1, inf]}]
+abs-->6 // [x -> {[1,3],⊥} ; fact -> {⊥, [1, inf]}]
+abs-->7 // [x -> {[0,3],⊥} ; fact -> {⊥, [1, inf]}]
+abs-->6 // [x -> {[0,0],⊥} ; fact -> {⊥, [1, inf]}]
 *)
 
 (*************************************************************)
@@ -335,20 +360,24 @@ abs-->6 // [x -> {[1,3], [-inf, -1]} ; fact -> {⊤, [1, inf]}]
 // Uncomment from here
 (*
 let n = 5;;
-let Guard = new Node(7, GeqAloc("m","i"), []);;
+let whileNode = new Node(7, While, []);;
+let Guard = new Node(8, GeqAloc("m","i"), []);;
 let Body = 
-    new Node(8, SumConst("f0","f1",0), [
-        new Node(9, SumConst("f1","f2",0), [
-            new Node(10, SumAloc("f2","f1","f0"),[
-                new Node(11, SumConst("i","i",1), [Guard])
+    new Node(9, SumConst("f0","f1",0), [
+        new Node(10, SumConst("f1","f2",0), [
+            new Node(11, SumAloc("f2","f1","f0"),[
+                new Node(12, SumConst("i","i",1), [whileNode])
             ])
         ])
     ])
 ;;
-let Exit = new Node(12, Return, []);;
-Guard.ChangeSucc([Body;Exit])
+Guard.ChangeSucc([Body]);;
+let notGuard = new Node(13, GeqAloc("i","m"), [
+    new Node(14, Return, [])
+]);;
+whileNode.ChangeSucc([Guard;notGuard]);;
 
-let cfg7 = 
+let cfg6 = 
     new CFG(
         new Node(0,GlobalDec(["n";"f0";"f1";"f2";"i";"m"]), [
             new Node(1, SimpleAss("n", n), [
@@ -357,7 +386,7 @@ let cfg7 =
                         new Node(4, SimpleAss("f2",1), [
                             new Node(5, SimpleAss("i",0), [
                                 new Node(6, SumConst("m","n",-1), [
-                                    Guard
+                                    whileNode
                                 ])
                             ])
                         ])
@@ -368,7 +397,7 @@ let cfg7 =
     )
 ;;
 
-let abs = main cfg7;;
+let abs = main cfg6;;
 *)
 
 (*************************************************************)
@@ -386,27 +415,32 @@ let abs = main cfg7;;
 // Uncomment from here
 (*
 let n = 5;;
-let Guard = new Node(3, LeqConst("i",n-1),[]);;
-let Body = new Node(4,ArrayAss("A","i","i"),[
-               new Node(5, SumConst("i","i",1), [Guard])
-           ])
-;;
-let Exit = new Node(6, Return, []);;
-Guard.ChangeSucc([Body;Exit]);;
+let whileNode = new Node(3, While, []);;
 
-let cfg8 =
+let Guard = new Node(4, LeqConst("i",n-1),[
+    new Node(5,ArrayAss("A","i","i"),[
+            new Node(6, SumConst("i","i",1), [whileNode])
+        ])
+    ])
+;;
+let notGuard = new Node(7, GeqConst("i",n),[
+   new Node(8, Return, [])
+]);;
+whileNode.ChangeSucc([Guard;notGuard]);;
+
+let cfg7 =
     new CFG(
         new Node(0,GlobalDec(["i"]), [
             new Node(1,Array("A",n*4,0), [
                 new Node(2,SimpleAss("i",0), [
-                    Guard
+                    whileNode
                 ])
             ])
         ])
     )
 ;;
 
-let abs = main cfg8
+let abs = main cfg7
 *)
 
 (*************************************************************)
@@ -445,7 +479,7 @@ Body1.ChangeSucc([Guard2])
 Guard1.ChangeSucc([Body1;Guard0]);;
 Guard0.ChangeSucc([Guard1;Exit0]);;
 
-let cfg9 =
+let cfg8 =
     new CFG(
         new Node(0,GlobalDec(["i";"j";"zero"]), [
             new Node(1,Array("A",(n+1)*4,1), [
@@ -461,5 +495,5 @@ let cfg9 =
     )
 ;;
 
-let abs = main cfg9;;
+let abs = main cfg8;;
 *)

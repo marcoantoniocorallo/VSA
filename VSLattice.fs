@@ -1,7 +1,5 @@
 open System.Collections.Generic
 
-let WideningThreshold = 10;;
-
 // An abstract state is a map: aloc -> VS
 // Implementation is more or less a wrapper for Dictionary<aloc,ValueSet> objs, 
 // except that it exposes the map instead of providing setter/getter methods
@@ -117,31 +115,13 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         // Adjust/Times each interval in this VS by a constant
         member this.AdjustByConst(cnst : int) =  
             for mr in this.Map.Keys do
-
-                match this.Map.[mr] with
-                |Interval(Int(l),Int(r)) -> this.AddChange(mr,Interval(Int(l+cnst),Int(r+cnst) ) )
-                |Interval(NegativeInf, Int(r)) -> this.AddChange(mr,Interval(NegativeInf,Int(r+cnst)))
-                |Interval(Int(l), PositiveInf) -> this.AddChange(mr,Interval(Int(l+cnst),PositiveInf))
-
-                // ⊤ + c = ⊤ ; ⊥ + c = c
-                |Bottom -> this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
-                |Top -> ignore()
-
-                |_ -> failwith("Wrong interval")
+                let v = (this.Map.[mr])+Interval(Int(cnst),Int(cnst))
+                this.AddChange(mr,v)
 
         member this.TimesByConst(cnst : int) =  
             for mr in this.Map.Keys do
-
-                match this.Map.[mr] with
-                |Interval(Int(l),Int(r)) -> this.AddChange(mr,Interval(Int(l*cnst),Int(r*cnst)))
-                |Interval(NegativeInf, Int(r)) -> this.AddChange(mr,Interval(NegativeInf,Int(r*cnst)))
-                |Interval(Int(l), PositiveInf) -> this.AddChange(mr,Interval(Int(l*cnst),PositiveInf))
-
-                // ⊤ * c = ⊤ ; ⊥ * c = c
-                |Bottom -> this.AddChange(mr, Interval(Int(cnst),Int(cnst)))
-                |Top -> ignore()
-
-                |_ -> failwith("Wrong interval")
+                let v = (this.Map.[mr])*Interval(Int(cnst),Int(cnst))
+                this.AddChange(mr,v)
 
         // Remove Upper/Lower Bounds of each component RIC
         member this.RmUpperBounds() =
@@ -375,36 +355,20 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         newStates.Map.[aloc].TimesByConst(cnst)
         newStates
 
-    // VS1 + VS2 :
-    // ⊤ + ⊥ = ⊤;    ⊤ + ⊤ = ⊤;        ⊤ + I = ⊤;
-    //               ⊥ + ⊥ = ⊥;        ⊥ + I = I;
-    // I1 : [a,b] + I2 : [c,d] = [a+c,b+d] 
     static member (+) (vs1 : ValueSet, vs2 : ValueSet) =
         let newVS = vs1.Clone()
         for mr in vs1.MemRegs() do
-
-            match vs1.Map.[mr], vs2.Map.[mr] with
-            |Interval(Int(l1),Int(r1)),Interval(Int(l2),Int(r2)) -> newVS.AddChange(mr,Interval(Int(l1+l2),Int(r1+r2)))
-            |_,Top -> newVS.AddChange(mr,Top)
-            |Bottom,Interval(l,r) -> newVS.AddChange(mr,Interval(l,r))
-            
-            |_ -> ignore()
+            let v1 = vs1.Map.[mr]
+            let v2 = vs2.Map.[mr]
+            newVS.AddChange(mr,v1+v2)
         newVS
 
-    // VS1 * VS2 :
-    // ⊤ * ⊥ = ⊤;    ⊤ * ⊤ = ⊤;        ⊤ * I = ⊤;
-    //               ⊥ * ⊥ = ⊥;        ⊥ * I = I;
-    // I1 : [a,b] * I2 : [c,d] = [a*c,b*d] 
     static member (*) (vs1 : ValueSet, vs2 : ValueSet) =
         let newVS = vs1.Clone()
         for mr in vs1.MemRegs() do
-
-            match vs1.Map.[mr], vs2.Map.[mr] with
-            |Interval(Int(l1),Int(r1)),Interval(Int(l2),Int(r2)) -> newVS.AddChange(mr,Interval(Int(l1*l2),Int(r1*r2)))
-            |_,Top -> newVS.AddChange(mr,Top)
-            |Bottom,Interval(l,r) -> newVS.AddChange(mr,Interval(l,r))
-            
-            |_ -> ignore()
+            let v1 = vs1.Map.[mr]
+            let v2 = vs2.Map.[mr]
+            newVS.AddChange(mr,v1*v2)
         newVS
 
 ;;

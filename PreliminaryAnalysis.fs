@@ -53,5 +53,25 @@ let SizeOfAnalysis (cfg : ICFG) =
             |_ -> f xs
     in f nodes
 ;;
+
+// A dummy estimate of #iterations to do before widening
+let WideningDefaultValue = 15
+let mutable WideningThreshold = WideningDefaultValue;;
+let ThresholdCalc (cfg : ICFG) =
+    let nodes = cfg.Nodes()
+    let rec f (ns : INode list) l =
+        match ns with
+        |[] -> l
+        |x::xs -> 
+            match (x.Statm()) with
+            |LeqConst(_,s) -> f xs l@[s]
+            |GeqConst(_,s) -> f xs l@[s]
+            |ArrayLeqConst(_,_,s) -> f xs l@[s]
+            |ArrayGeqConst(_,_,s) -> f xs l@[s]
+            |_ -> f xs l
+
+    let g l = if l |> List.isEmpty then 0 else l |> List.max
+    in g (f nodes [])+1
+;;
     
 (* Other todo analysis: #Malloc for counting #HeapRegs; #Procs for counting #ARRegs *)

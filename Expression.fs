@@ -22,6 +22,9 @@
  * TimesConst : R1 = R2 * c
  * SumAloc : R1 = R2 + R3
  * TimesAloc : R1 = R2 * R3
+ *
+ * If : points to condition and its negation
+ * While : points to condition and its negation
  * Return
  *)
 
@@ -48,5 +51,8 @@ type Exp =
     |TimesConst of aloc * aloc * int
     |SumAloc of aloc * aloc * aloc
     |TimesAloc of aloc * aloc * aloc
-    |Return 
+
+    |If
+    |While
+    |Return
 ;;
