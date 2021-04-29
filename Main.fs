@@ -458,26 +458,44 @@ let abs = main cfg7
  *       while j <= n
  *          A[j] = 0
  *          j = j+i
+ * Return
  *)
 
 // Uncomment from here
 (*
 let n = 7;;
-let Guard0 = new Node(5, LeqConst("i",n+1), []);;
-let Guard1 = new Node(6, ArrayGeqConst("A","i",1),[]);;
-let Body1 = new Node(7, TimesConst("j","i",2), []);;
-let Guard2 = new Node(8,LeqConst("j",n),[]);;
-let Body2 = new Node(9, SimpleAss("zero",0), [
-                new Node(10, ArrayAss("A","j","zero"),[
-                    new Node(11, SumAloc("j","j","i"), [Guard2])
+let while0 = new Node(5, While, []);;
+let while1 = new Node(13, While, []);;
+let guard1 = 
+    new Node(14,LeqConst("j",n),[
+        new Node(15, SimpleAss("zero",0), [
+            new Node(16, ArrayAss("A","j","zero"), [
+                new Node(17, SumAloc("j","j","i"), [while1])
+            ])
+        ])
+    ])
+;;
+let notguard1 = new Node(18,GeqConst("j",n), [while0] );;
+while1.ChangeSucc([guard1;notguard1]);;
+let guard0 = 
+    new Node(6, LeqConst("i",n+1), [
+        new Node(7, If, [
+            // then
+            new Node(8, ArrayGeqConst("A","i",1), [
+                new Node(9,TimesConst("j","i",2), [
+                    while1
                 ])
-            ]);;
-let Exit0 = new Node(12,Return,[]);;
-
-Guard2.ChangeSucc([Body2;Guard1])
-Body1.ChangeSucc([Guard2])
-Guard1.ChangeSucc([Body1;Guard0]);;
-Guard0.ChangeSucc([Guard1;Exit0]);;
+            ])
+            // else
+            new Node(10, ArrayLeqConst("A","i",1), [while0])
+        ])
+    ]);;
+let notguard0 = 
+    new Node(11, GeqConst("i",n+2), [
+        new Node(12, Return, [])
+    ])
+;;
+while0.ChangeSucc([guard0;notguard0]);;
 
 let cfg8 =
     new CFG(
@@ -486,7 +504,7 @@ let cfg8 =
                 new Node(2,SimpleAss("A+0",0), [
                     new Node(3, SimpleAss("A+4",0), [
                         new Node(4, SimpleAss("i",2),[ 
-                            Guard0
+                            while0
                         ])
                     ])
                 ])
