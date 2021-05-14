@@ -71,7 +71,7 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             let abs = oldAbs.Clone()
 
             // subst in clone.Global the value n
-            abs.Map.[aloc].AddChange(GLOBAL,Interval(Int(n),Int(n)))
+            abs.ChangeValue(aloc,GLOBAL,Interval(Int(n),Int(n)))
             abs 
         in f
 
@@ -86,19 +86,19 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
         let f (oldAbs : AbstractState) =
             let newAbs = oldAbs.Clone()
-            for mr in oldAbs.Map.[i].MemRegs() do
-                match oldAbs.Map.[i].Map.[mr] with
+            for mr in oldAbs.Get(i).MemRegs() do
+                match oldAbs.Get(i).ValuesIn(mr) with
                 |Interval(Int(l),Int(r)) when (r-l)<=MaxGap ->
                     for j=l to r do
                         try 
-                            newAbs.Map.[A+"+"+(string (j*4))].AddChange(mr,oldAbs.Map.[k].Map.[mr])
+                            newAbs.ChangeValue( A+"+"+(string (j*4)), mr, oldAbs.Get(k).ValuesIn(mr) )
                         with
                         | :?System.Collections.Generic.KeyNotFoundException ->
-                        newAbs.Add(A+"+"+(string (j*4)), oldAbs.Map.[k].Clone())
+                        newAbs.Add(A+"+"+(string (j*4)), oldAbs.Get(k))
 
                 |Interval(l,r) -> failwith(A+"["+(Interval(l,r).ToString())+"]:\nPossible Stack Overflow")
                 |Top -> failwith(A+"[Top]:\nPossible Stack Overflow")
-                |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.Map.[A+"+"+(string (j*4))].AddChange(mr,Bottom)
+                |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.ChangeValue( A+"+"+(string (j*4)), mr, Bottom)
             newAbs
         in f
 
@@ -106,8 +106,8 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
         let f (oldAbs : AbstractState) = 
             let mutable newAbs = oldAbs.Clone()
-            for mr in oldAbs.Map.[i].MemRegs() do
-                match oldAbs.Map.[i].Map.[mr] with
+            for mr in oldAbs.Get(i).MemRegs() do
+                match oldAbs.Get(i).ValuesIn(mr) with
                 |Interval(Int(l),Int(r)) when (r-l)<=MaxGap -> 
                     for j=l to r do
                         try 
@@ -118,7 +118,7 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
                 |Interval(l,r) -> failwith(A+"["+(Interval(l,r).ToString())+"]:\nPossible Stack Overflow")
                 |Top -> failwith(A+"[Top]:\nPossible Stack Overflow")
-                |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.Map.[A+"+"+(string (j*4))].AddChange(mr,Bottom)
+                |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.ChangeValue(A+"+"+(string (j*4)), mr, Bottom)
             newAbs
         in f
 
@@ -126,8 +126,8 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
         let f (oldAbs : AbstractState) = 
             let mutable newAbs = oldAbs.Clone()
-            for mr in oldAbs.Map.[i].MemRegs() do
-                match oldAbs.Map.[i].Map.[mr] with
+            for mr in oldAbs.Get(i).MemRegs() do
+                match oldAbs.Get(i).ValuesIn(mr) with
                 |Interval(Int(l),Int(r)) when (r-l)<=MaxGap -> 
                     for j=l to r do
                         try 
@@ -138,7 +138,7 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
                 |Interval(l,r) -> failwith(A+"["+(Interval(l,r).ToString())+"]:\nPossible Stack Overflow")
                 |Top -> failwith(A+"[Top]:\nPossible Stack Overflow")
-                |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.Map.[A+"+"+(string (j*4))].AddChange(mr,Bottom)
+                |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.ChangeValue(A+"+"+(string (j*4)), mr, Bottom)
             newAbs
         in f
 
@@ -146,8 +146,8 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
         let f (oldAbs : AbstractState) =
             let newAbs = VS.AdjustByC oldAbs aloc2 cnst
-            newAbs.Map.[aloc1] <- newAbs.Map.[aloc2].Clone()
-            newAbs.Map.[aloc2] <- oldAbs.Map.[aloc2].Clone()
+            newAbs.Set(aloc1,newAbs.Get(aloc2))
+            newAbs.Set(aloc2,oldAbs.Get(aloc2))
             newAbs
 
         let g (oldAbs : AbstractState) = VS.AdjustByC oldAbs aloc1 cnst
@@ -157,8 +157,8 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
         
         let f (oldAbs : AbstractState) =
             let newAbs = VS.TimesByC oldAbs aloc2 cnst
-            newAbs.Map.[aloc1] <- newAbs.Map.[aloc2].Clone()
-            newAbs.Map.[aloc2] <- oldAbs.Map.[aloc2].Clone()
+            newAbs.Set(aloc1,newAbs.Get(aloc2))
+            newAbs.Set(aloc2,oldAbs.Get(aloc2))
             newAbs
         let g (oldAbs : AbstractState) = VS.TimesByC oldAbs aloc1 cnst
         in if aloc1<>aloc2 then f else g
@@ -166,18 +166,18 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
     |SumAloc(aloc1,aloc2,aloc3) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs2 + vs3])
         
         let f (oldAbs : AbstractState) =
-            let newVS = oldAbs.Map.[aloc2] + oldAbs.Map.[aloc3]
+            let newVS = oldAbs.Get(aloc2) + oldAbs.Get(aloc3)
             let abs = oldAbs.Clone()
-            abs.Map.[aloc1] <- newVS
+            abs.Set(aloc1,newVS)
             abs
         in f
 
     |TimesAloc(aloc1, aloc2, aloc3) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs2 * vs3])
         
         let f (oldAbs : AbstractState) =
-            let newVS = oldAbs.Map.[aloc2] * oldAbs.Map.[aloc3]
+            let newVS = oldAbs.Get(aloc2) * oldAbs.Get(aloc3)
             let abs = oldAbs.Clone()
-            abs.Map.[aloc1] <- newVS.Clone()
+            abs.Set(aloc1,newVS)
             abs
         in f
 
@@ -187,7 +187,7 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
             // top = ([-inf,c],⊤,...,⊤)
             let top = L.Join (L.Top()) oldAbs
-            top.Map.[aloc].AddChange(GLOBAL,Interval(NegativeInf,Int(c)))
+            top.ChangeValue(aloc,GLOBAL,Interval(NegativeInf,Int(c)))
             L.Meet oldAbs top
 
         in f
@@ -197,7 +197,7 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
         let f (oldAbs : AbstractState) =
             // top = ([c,inf],⊤,...,⊤)
             let top = L.Join (L.Top()) oldAbs
-            top.Map.[aloc].AddChange(GLOBAL,Interval(Int(c),PositiveInf))
+            top.ChangeValue(aloc,GLOBAL,Interval(Int(c),PositiveInf))
             L.Meet oldAbs top 
             
         in f
@@ -210,12 +210,12 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             let abs = oldAbs.Clone()
             
             // abs.[R1] = abs.[R2].RmUpperBounds ; 
-            abs.Map.[R1] <- abs.Map.[R2].Clone()
-            abs.Map.[R1].RmUpperBounds()
+            abs.Set(R1,abs.Get(R2))
+            abs.RmUp(R1)
 
             // abs.[R2] = abs.[R1].RmLowerBounds ; 
-            abs.Map.[R2] <- oldAbs.Map.[R1].Clone()
-            abs.Map.[R2].RmLowerBounds()
+            abs.Set(R2,abs.Get(R1))
+            abs.RmLow(R2)
 
             L.Meet oldAbs abs
 
