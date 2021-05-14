@@ -91,10 +91,6 @@ and ValueSet( list : (MemoryRegion * Values) list ) =
         new(mr : MemoryRegion, v : Values) = new ValueSet([mr,v])
         new(v : Values) = new ValueSet(availableMRs |> List.map (fun (x : MemoryRegion) -> (x,v)))
     
-        (**************************************************************************)
-        (************************ Methods and attributes **************************)
-        (**************************************************************************)
-    
         // references the local map so that it can be modified (this.Add(...))
         member this.Map = map
            
