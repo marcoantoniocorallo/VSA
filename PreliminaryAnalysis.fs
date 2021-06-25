@@ -11,7 +11,7 @@ let availableMRs = [new MemoryRegion(RegionType.AR,0);new MemoryRegion(RegionTyp
 
 // list of every defined var
 let mutable availableVars : aloc list = [] ;;  
-let availableVarsAnalysis (cfg : ICFG) : (aloc list) =
+let availableVarsAnalysis (cfg : ICFG<Exp>) : (aloc list) =
 
     // if statm = {HeapDec/GlobalDec} -> add new defined vars to ls
     let h statm ls = 
@@ -26,7 +26,7 @@ let availableVarsAnalysis (cfg : ICFG) : (aloc list) =
         |_ -> ls
 
     let rec f nodes l =
-        match (nodes : INode list) with
+        match (nodes : INode<Exp> list) with
         |[] -> l
         |x::xs -> f xs (h (x.Statm()) l)
 
@@ -35,10 +35,10 @@ let availableVarsAnalysis (cfg : ICFG) : (aloc list) =
 
 // map: aloc -> sizeOf(aloc)
 let mutable SizeOf = new Dictionary<aloc,int>() ;;
-let SizeOfAnalysis (cfg : ICFG) =
+let SizeOfAnalysis (cfg : ICFG<Exp>) =
     let nodes = cfg.Nodes()
     let map = new Dictionary<aloc,int>()
-    let rec f (ns : INode list) =
+    let rec f (ns : INode<Exp> list) =
         match ns with
         |[] -> map
         |x::xs -> 
@@ -57,9 +57,9 @@ let SizeOfAnalysis (cfg : ICFG) =
 // A dummy estimate of #iterations to do before widening
 let WideningDefaultValue = 15
 let mutable WideningThreshold = WideningDefaultValue;;
-let ThresholdCalc (cfg : ICFG) =
+let ThresholdCalc (cfg : ICFG<Exp>) =
     let nodes = cfg.Nodes()
-    let rec f (ns : INode list) l =
+    let rec f (ns : INode<Exp> list) l =
         match ns with
         |[] -> l
         |x::xs -> 

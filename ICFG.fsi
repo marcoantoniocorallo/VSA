@@ -1,12 +1,12 @@
 [<Interface>]
 
-type ICFG = 
+type ICFG<'T> = 
     interface
 
-    abstract EntryBlock : unit -> INode
+    abstract EntryBlock : unit -> INode<'T>
 
     abstract Length: unit -> int
 
-    abstract Nodes: unit -> INode list
+    abstract Nodes: unit -> INode<'T> list
 
 end

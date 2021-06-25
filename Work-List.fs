@@ -6,14 +6,14 @@ open System.Collections.Generic
    Output: Abstract states x1,...,xn
 *)
     
-let WorkList (L : ILattice<'T>) (T : Exp -> ('T->'T)) (cfg : ICFG)  =
+let WorkList (L : ILattice<'T>) (T : 'E -> ('T->'T)) (cfg : ICFG<'E>)  =
     
     // define: n = #{v1,...,vn}, 
     // x = (node -> (aloc -> VS) ) = (⊥,...,⊥) 
     // W=(v1,...,vn) cfg nodes in worker list
     // Note: //Dict is mutable, as opposed to Map, and is generic, as opposed to htable
     let n = cfg.Length()
-    let x = new Dictionary<INode,'T>()
+    let x = new Dictionary<INode<'E>,'T>()
     let mutable W = []
     for node in cfg.Nodes() do
         x.TryAdd(node, L.Bot()) |> ignore // ignore existing nodes (case of several branches that converges)

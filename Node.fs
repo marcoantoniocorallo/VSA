@@ -7,7 +7,7 @@ type Node(id : int, exp : Exp, succ : Node list ) =
     // method called by a Node instance
     member this.ID() = id
 
-    interface INode with
+    interface INode<Exp> with
 
         // method called by a Node:>INode instance
         member this.ID() = id
@@ -15,12 +15,12 @@ type Node(id : int, exp : Exp, succ : Node list ) =
         member this.Statm() = exp
 
         // returns succ
-        member this.Succ() = Succ |> List.map (fun x -> x :> INode)
+        member this.Succ() = Succ |> List.map (fun x -> x :> INode<Exp>)
 
         // used to compute the list of all nodes
         member this.AllSucc(ls) =
             let mutable l = ls
-            match (this:>INode).Succ() with 
+            match (this:>INode<Exp>).Succ() with 
             |[] -> l
             |xs -> for x in xs do
                        if List.contains x l then ignore()
@@ -28,7 +28,7 @@ type Node(id : int, exp : Exp, succ : Node list ) =
                    l
 
         // forward-analysis -> dep = succ
-        member this.Dep() = (this :> INode).Succ()
+        member this.Dep() = (this :> INode<Exp>).Succ()
 
         // method called by a Node:>INode instance
         member this.CompareTo(o : obj) : int = 
@@ -60,7 +60,7 @@ type Node(id : int, exp : Exp, succ : Node list ) =
 
     override this.GetHashCode() = this.ID()
 
-    override this.ToString() = (string (this.ID())+", "+string ((this:>INode).Statm()))
+    override this.ToString() = (string (this.ID())+", "+string ((this:>INode<Exp>).Statm()))
 
     member this.ChangeSucc(nodes : Node list) = Succ <- nodes
 
