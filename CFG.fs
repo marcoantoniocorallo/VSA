@@ -8,7 +8,7 @@ type CFG(entryNode : Node) =
         member this.Length() = (this:>ICFG<Exp>).Nodes().Length
 
         // Returns list of all distinct nodes
-        member this.Nodes() = [(this:>ICFG<Exp>).EntryBlock()]@(this:>ICFG<Exp>).EntryBlock().AllSucc([]) 
+        member this.Nodes() = [(this:>ICFG<Exp>).EntryBlock()]@(this:>ICFG<Exp>).EntryBlock().AllNodes([]) 
                               |> List.distinct 
                               |> List.sort
 

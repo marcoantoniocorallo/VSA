@@ -18,13 +18,13 @@ type Node(id : int, exp : Exp, succ : Node list ) =
         member this.Succ() = Succ |> List.map (fun x -> x :> INode<Exp>)
 
         // used to compute the list of all nodes
-        member this.AllSucc(ls) =
+        member this.AllNodes(ls) =
             let mutable l = ls
             match (this:>INode<Exp>).Succ() with 
             |[] -> l
             |xs -> for x in xs do
                        if List.contains x l then ignore()
-                       else l<-l@[x]@(x.AllSucc(l@[x]))
+                       else l<-l@[x]@(x.AllNodes(l@[x]))
                    l
 
         // forward-analysis -> dep = succ
