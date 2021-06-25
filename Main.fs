@@ -9,8 +9,8 @@ let main cfg =
 // Simplify Item[] notation when you need to access to an abstract state from the correspond node
 // Dict.[Node(ID,Type(param),[])]  ==  Dict-->ID
 // Not required, but used in some of these tests
-let (-->) (dict : Dictionary<INode,AbstractState>) (n : int) =
-    let rec f (ks : INode list) = 
+let (-->) (dict : Dictionary<INode<Exp>,AbstractState>) (n : int) =
+    let rec f (ks : INode<Exp> list) = 
         match ks with 
         |[] -> failwith("INode not found")
         |x::xs -> if x.ID()=n then dict.[x].ToString() else f xs
