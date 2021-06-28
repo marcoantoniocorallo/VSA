@@ -16,7 +16,7 @@ let WorkList (L : ILattice<'T>) (T : 'E -> ('T->'T)) (cfg : ICFG<'E>)  =
     let x = new Dictionary<INode<'E>,'T>()
     let W = new ResizeArray<INode<'E>>()
     for node in cfg.Nodes() do
-        x.TryAdd(node, L.Bot()) |> ignore // ignore existing nodes (case of several branches that converges)
+        x.Add(node, L.Bot())
         W.Add(node)
 
     // Scans work-list and applies transfer function based on type of statement
