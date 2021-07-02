@@ -84,6 +84,14 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
 
     |ArrayAss(A,i,k) -> // returns fun : x -> x[k.Global/A[i].Global]
 
+        let intervalJoin i1 i2 = 
+           match i1, i2 with
+           |Top,_ 
+           |_,Top -> Top
+           |Bottom,i -> i 
+           |i,Bottom -> i
+           |Interval(a,b),Interval(c,d) -> Interval(min a c, max b d)
+
         let f (oldAbs : AbstractState) =
             let newAbs = oldAbs.Clone()
             for mr in oldAbs.Get(i).MemRegs() do
@@ -91,7 +99,9 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
                 |Interval(Int(l),Int(r)) when (r-l)<=MaxGap ->
                     for j=l to r do
                         try 
-                            newAbs.ChangeValue( A+"+"+(string (j*4)), mr, oldAbs.Get(k).ValuesIn(mr) )
+                            newAbs.ChangeValue( A+"+"+(string (j*4)), mr, 
+                                intervalJoin (oldAbs.Get(k).ValuesIn(mr)) (oldAbs.Get(A+"+"+(string (j*4))).ValuesIn(mr)) 
+                            )
                         with
                         | :?System.Collections.Generic.KeyNotFoundException ->
                         newAbs.Add(A+"+"+(string (j*4)), oldAbs.Get(k))
