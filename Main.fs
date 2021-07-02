@@ -506,7 +506,8 @@ let cfg8 =
     )
 ;;
 
-let abs = main cfg8;;
+let abs = main cfg8 |> ignore;;
+*)
 
 (*************************************************************)
 
@@ -594,4 +595,4 @@ let cfg10 =
 ;;
 
 let abs = main cfg10
-*)
+*) 
