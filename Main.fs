@@ -467,10 +467,11 @@ let guard1 =
         ])
     ])
 ;;
-let notguard1 = new Node(18,GeqConst("j",n), [while0] );;
+let e2 = new Node(42,SumConst("i","i",1), [while0]);;
+let notguard1 = new Node(18,GeqConst("j",n), [e2] );;
 while1.ChangeSucc([guard1;notguard1]);;
 let guard0 = 
-    new Node(6, LeqConst("i",n+1), [
+    new Node(6, LeqConst("i",n), [
         new Node(7, If, [
             // then
             new Node(8, ArrayGeqConst("A","i",1), [
@@ -479,11 +480,11 @@ let guard0 =
                 ])
             ])
             // else
-            new Node(10, ArrayLeqConst("A","i",1), [while0])
+            new Node(10, ArrayLeqConst("A","i",1), [e2])
         ])
     ]);;
 let notguard0 = 
-    new Node(11, GeqConst("i",n+2), [
+    new Node(11, GeqConst("i",n+1), [
         new Node(12, Return, [])
     ])
 ;;
@@ -506,4 +507,91 @@ let cfg8 =
 ;;
 
 let abs = main cfg8;;
+
+(*************************************************************)
+
+// Off-By-One Test
+(* var x
+ * x = 0
+ * while (x <= size)
+ *     // other body instructions
+ *     x = x + 1
+ * Return;
+ *)
+
+// Test case 9: Uncomment from here
+(*
+let size = 9;
+
+let WhileNode = Node(2, While, []);;
+let guard = Node(3, LeqConst("x",size), []);;
+let body = Node(4, SumConst("x","x",1), [WhileNode]);;
+guard.ChangeSucc([body]);;
+let notguard = Node(5, GeqConst("x",6), []);;
+let exit = Node(6, Return, []);;
+notguard.ChangeSucc([exit]);;
+WhileNode.ChangeSucc([guard;notguard])
+
+let cfg9 = 
+    new CFG(
+        new Node(0,GlobalDec(["x"]),[
+            new Node(1, SimpleAss("x",0), [
+                WhileNode
+            ])
+        ])
+    )
+;;
+let abs = main cfg9;; 
+
+abs-->0 // []
+abs-->1 // x -> {⊥, ⊤}
+abs-->2 // x -> {⊥,[0,6]}
+abs-->3 // x -> {⊥,[0,6]}
+abs-->4 // x -> {⊥,[0,5]}
+abs-->5 // x -> {⊥,[0,6]}
+abs-->6 // x -> {⊥,[6,6]}
+*)
+
+(*************************************************************)
+
+// Buffer-overflow test
+(* let size = input
+ * let A[sizeof(int)*size] = (0,...,0)
+ * let i
+ * i = 0
+ * while i<=size
+ *    A[i] = i
+ *    i = i+1
+ * Return
+ *)
+
+// Uncomment from here
+(*
+let size = 5;;
+let whileNode = new Node(3, While, []);;
+
+let Guard = new Node(4, LeqConst("i",size),[
+    new Node(5,ArrayAss("A","i","i"),[
+            new Node(6, SumConst("i","i",1), [whileNode])
+        ])
+    ])
+;;
+let notGuard = new Node(7, GeqConst("i",size),[
+   new Node(8, Return, [])
+]);;
+whileNode.ChangeSucc([Guard;notGuard]);;
+
+let cfg10 =
+    new CFG(
+        new Node(0,GlobalDec(["i"]), [
+            new Node(1,Array("A",size*4,0), [
+                new Node(2,SimpleAss("i",0), [
+                    whileNode
+                ])
+            ])
+        ])
+    )
+;;
+
+let abs = main cfg10
 *)
