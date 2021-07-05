@@ -112,6 +112,7 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
             newAbs
         in f
 
+    (*
     |ArrayLeqConst(A,i,c) ->
 
         let f (oldAbs : AbstractState) = 
@@ -151,7 +152,8 @@ let rec TransferFunctions(e : Exp) : (AbstractState -> AbstractState) =
                 |Bottom -> for j=0 to (SizeOf.[A]/4)-1 do newAbs.ChangeValue(A+"+"+(string (j*4)), mr, Bottom)
             newAbs
         in f
-
+    *)
+    
     |SumConst(aloc1,aloc2,cnst) -> // returns fun : x -> (x \ [R1 -> *] u [R1 -> vs2 AdjustByConst c])
 
         let f (oldAbs : AbstractState) =

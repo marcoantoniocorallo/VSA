@@ -596,3 +596,30 @@ let cfg10 =
 
 let abs = main cfg10
 *) 
+
+(*************************************************************)
+
+// Example in Thesis
+(*
+let cfg11 = 
+    new CFG(
+        new Node(0,GlobalDec(["x";"y"]),[
+            new Node(1,SimpleAss("y",3), [
+                new Node(2,If, [
+                    new Node(3,GeqConst("x",0),[
+                        new Node (5,SimpleAss("y",5), [
+                            new Node(7,Return, [])
+                        ])
+                    ]);
+                    new Node(4,LeqConst("x",-1), [
+                        new Node(6,SimpleAss("y",7), [
+                            new Node(7,Return, [])
+                        ])
+                    ])
+                ])
+            ])
+        ])
+    )
+;;
+main cfg11;;
+*)
