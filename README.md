@@ -1,6 +1,7 @@
 # VSA
 Value-Set Analysis is a binary data-flow analysis for tracking the values that each variable may assume for each program point.
 You can find more information about VSA [here](https://link.springer.com/chapter/10.1007/978-3-540-24723-4_2) and [here](https://link.springer.com/chapter/10.1007/978-3-540-69149-5_22).
+
 For this project a static analyzer was developed for a lightweight version of the VSA, able to analyze each integer-type data object of a single-procedure program.
 
 #### In order to analyze your programs, you must compile classes and modules following the order of dependencies:
